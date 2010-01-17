@@ -1,0 +1,7 @@
+Name: fractaler
+Author: Demur Rumed
+Build-Depends: GLUT, Parallel
+ghc-options: -threaded
+Executable: fractaler
+Main-is: fractaler.hs
+
