@@ -29,7 +29,7 @@ main = do
 
 detailZoom _ dir _ = do
 	f <- get func
-	func $= max 1 (f+dir*100)
+	func $= max 0 (f+dir*100)
 	windowTitle $= show f
 	postRedisplay Nothing
 
@@ -66,12 +66,26 @@ displayMap = do
 	t <- getPOSIXTime
 	unsafeRenderPrimitive Points $ zipWithM_ (\ !v !c->vertex v >> color c) ptsg $ parBuffer 600 rwhnf $ map (mandel f) $ pts xy w
 	getPOSIXTime >>= putStrLn . show . subtract t
-
 pts :: (Double,Double,Double,Double) -> GLsizei -> [(Double,Double)]
 pts (!x1,!x2,!y1,!y2) !wid = [(x1+((x2-x1)/w)*x,y1+((y2-y1)/w)*y)|x<-[0..w],y<-[0..w]] where w=fromIntegral wid-1
+
 mandel :: Int -> (Double,Double) -> Color3 GLfloat
-mandel !zz (!x,!y) = mandel zz x y
-	where mandel !z !zr !zi
+mandel zz (!x,!y) = f zz x y
+	where f !z !zr !zi
 		|z==0 = Color3 0 0 0
-		|zr*zr+zi*zi<4 = mandel (z-1) (zr*zr-zi*zi+x) (2*zr*zi+y)
+		|zr*zr+zi*zi<4 = f (z-1) (zr*zr-zi*zi+x) (2*zr*zi+y)
+		|True = Color3 ((fromIntegral z/fromIntegral zz)^3) ((fromIntegral z/fromIntegral zz)^2) (fromIntegral z/fromIntegral zz)
+
+tricorn :: Int -> (Double,Double) -> Color3 GLfloat
+tricorn zz (!x,!y) = f zz x y
+	where f !z !zr !zi
+		|z==0 = Color3 0 0 0
+		|zr*zr+zi*zi<4 = f (z-1) (zi*zi-zr*zr+x) (2*zr*zi+y)
+		|True = Color3 ((fromIntegral z/fromIntegral zz)^3) ((fromIntegral z/fromIntegral zz)^2) (fromIntegral z/fromIntegral zz)
+
+burningship :: Int -> (Double,Double) -> Color3 GLfloat
+burningship zz (!x,!y) = f zz x y
+	where f !z !zr !zi
+		|z==0 = Color3 0 0 0
+		|zr*zr+zi*zi<4 = f (z-1) (zi*zi-zr*zr+x) (2*abs (zr*zi)+y)
 		|True = Color3 ((fromIntegral z/fromIntegral zz)^3) ((fromIntegral z/fromIntegral zz)^2) (fromIntegral z/fromIntegral zz)
