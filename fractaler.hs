@@ -1,5 +1,5 @@
 {-# LANGUAGE BangPatterns#-}
-{-# OPTIONS -fexcess-precision -funbox-strict-fields -feager-blackholing -O2 #-}
+{-# OPTIONS -fexcess-precision -funbox-strict-fields -feager-blackholing -O2#-}
 module Main(main) where
 import Graphics.UI.GLUT
 import Data.Time.Clock.POSIX(getPOSIXTime)
@@ -8,18 +8,25 @@ import Data.Complex
 import Control.Monad
 import Control.Parallel.Strategies
 import System.IO.Unsafe(unsafePerformIO)
-import GHC.Float
-import Unsafe.Coerce
+import GHC.Float(double2Float)
+import Unsafe.Coerce(unsafeCoerce)
 
-doubleToGF = unsafeCoerce . double2Float
-
-finc = 100
-{-# NOINLINE func #-}
-func = unsafePerformIO $ newIORef finc
-{-# NOINLINE xyold #-}
+{-# NOINLINE func#-}
+func = unsafePerformIO $ newIORef 2
+{-# NOINLINE xyold#-}
 xyold = unsafePerformIO $ newIORef (-2,-2,2,2)
-{-# NOINLINE xynew #-}
+{-# NOINLINE xynew#-}
 xynew = unsafePerformIO $ newIORef (0,0)
+{-# NOINLINE fractal#-}
+fractal = unsafePerformIO $ newIORef $ cycle [
+	(mandel,100),
+	(juliadagger,100),
+	(juliaeg,100),
+	(newtoneg,5),
+	(tricorn,100),
+	(burningship,100),
+	(nodoub,100),
+	(yxmandel,100)]
 
 main = do
 	getArgsAndInitialize
@@ -31,7 +38,7 @@ main = do
 	mouseWheelCallback $= Just detailZoom
 	mainLoop
 detailZoom _ dir _ = do
-	func $~ (max 0 . (+) (dir*finc))
+	func $~ (max 0 . (+) dir)
 	get func >>= (windowTitle$=) . show
 	postRedisplay Nothing
 
@@ -57,6 +64,7 @@ displayZoom (MouseButton LeftButton) Up _ xy = do
 	xyon <- get xyold
 	windowTitle $= show xyon
 	postRedisplay Nothing
+displayZoom (MouseButton RightButton) Down _ _ = fractal $~ tail >> postRedisplay Nothing
 displayZoom _ _ _ _ = return ()
 
 displayMap = do
@@ -64,13 +72,14 @@ displayMap = do
 	f <- get func
 	xy <- get xyold
 	t <- getPOSIXTime
-	unsafeRenderPrimitive Points $ zipWithM_ (\v c->vertex v >> color c) ([Vertex2 a b|a<-[0..w],b<-[0..w]]::[Vertex2 GLshort]) $ parBuffer 600 rwhnf $ map (fractal f) $ pts xy w
+	fractal <- get fractal
+	unsafeRenderPrimitive Points $ zipWithM_ (\v c->vertex v >> color c) ([Vertex2 a b|a<-[0..w],b<-[0..w]]::[Vertex2 GLshort]) $ parBuffer 600 rwhnf $ map (fst (head fractal) (f*(snd $ head fractal))) $ pts xy w
 	getPOSIXTime >>= putStrLn . show . subtract t
 pts :: (Double,Double,Double,Double) -> GLshort -> [Complex Double]
 pts (x1,y1,x2,y2) wid = [(x1+((x2-x1)/w)*x):+(y1+((y2-y1)/w)*y)|x<-[0..w],y<-[0..w]] where w = fromIntegral wid
 
+doubleToGF = unsafeCoerce . double2Float
 magsqr (x:+y) = x^2+y^2
-fractal = mandel--newtondeg
 
 derive f x = (f (x+d)-f x)/d where d=0.0000000000005
 newraph 0 f x = x
