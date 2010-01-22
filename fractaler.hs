@@ -12,23 +12,17 @@ import GHC.Float(double2Float)
 import Unsafe.Coerce(unsafeCoerce)
 
 {-# NOINLINE func#-}
-func = unsafePerformIO $ newIORef 2
+func = unsafePerformIO $ newIORef $ mandel
+{-# NOINLINE finc#-}
+finc = unsafePerformIO $ newIORef 100
+{-# NOINLINE fiva#-}
+fiva = unsafePerformIO $ newIORef 2
 {-# NOINLINE xyold#-}
 xyold = unsafePerformIO $ newIORef (-2,-2,4)
 {-# NOINLINE xynew#-}
 xynew = unsafePerformIO $ newIORef (0,0)
-{-# NOINLINE fractal#-}
-fractal = unsafePerformIO $ newIORef $ cycle [
-	(mandel,100),
-	(newtoneg,5),
-	(juliaeg,100),
-	(tricorn,100),
-	(newtontrig,5),
-	(juliadagger,100),
-	(newtontrigright,5),
-	(burningship,100),
-	(nodoub,100),
-	(yxmandel,100)]
+{-# NOINLINE xydrt#-}
+xydrt = unsafePerformIO $ newIORef False
 
 main = do
 	getArgsAndInitialize
@@ -38,10 +32,26 @@ main = do
 	keyboardMouseCallback $= Just displayZoom
 	reshapeCallback $= Just reshaper
 	mouseWheelCallback $= Just detailZoom
+	attachMenu RightButton $ Menu [
+		MenuEntry "reset" $ xyold$=(-2,-2,4) >> xydrt$=True,
+		MenuEntry "mandel" $ meop mandel 100,
+		MenuEntry "newtoneg" $ meop newtoneg 5,
+		MenuEntry "juliaeg" $ meop juliaeg 100,
+		MenuEntry "tricorn" $ meop tricorn 100,
+		MenuEntry "newtontrig" $ meop newtontrig 5,
+		MenuEntry "juliadagger" $ meop juliadagger 100,
+		MenuEntry "newtontrigright" $ meop newtontrigright 5,
+		MenuEntry "burningship" $ meop burningship 100,
+		MenuEntry "nodoub" $ meop nodoub 100,
+		MenuEntry "yxmandel" $ meop yxmandel 100]
 	mainLoop
+	where meop x y = do
+		func $= x
+		finc $= y
+		xydrt $= True
 detailZoom _ dir _ = do
-	func $~ (max 0 . (+) dir)
-	get func >>= (windowTitle$=) . show
+	fiva $~ (max 0 . (+) dir)
+	get fiva >>= (windowTitle$=) . show
 	postRedisplay Nothing
 
 reshaper (Size xx yy) = let x=min xx yy in do
@@ -57,32 +67,34 @@ zoomAdjust (Position x y) = do
 	return $! (a+(fromIntegral x/fromIntegral w)*c,b+(fromIntegral y/fromIntegral w)*c)
 displayZoom (MouseButton LeftButton) Down _ xy = zoomAdjust xy >>= (xynew$=)
 displayZoom (MouseButton LeftButton) Up _ xy = do
-	(xn,yn) <- get xynew
-	(x,y) <- zoomAdjust xy
-	xyn <- if x==xn && y==yn then do
-			(_,_,c) <- get xyold
-			return (x-c,y-c,c*2)
-		else return (min x xn,min y yn,max (abs $ x-xn) (abs $ y-yn))
-	xyold $= xyn
-	windowTitle $= show xyn
-	postRedisplay Nothing
-displayZoom (MouseButton RightButton) Down _ _ = fractal $~ tail >> postRedisplay Nothing
+	xyd <- get xydrt
+	if xyd then xydrt $= False else do
+		(xn,yn) <- get xynew
+		(x,y) <- zoomAdjust xy
+		xyn <- if x==xn && y==yn then do
+				(_,_,c) <- get xyold
+				return (x-c,y-c,c*2)
+			else return (min x xn,min y yn,max (abs $ x-xn) (abs $ y-yn))
+		xyold $= xyn
+		windowTitle $= show xyn
+		postRedisplay Nothing
 displayZoom _ _ _ _ = return ()
 
 pts :: (Double,Double,Double) -> GLshort -> [Complex Double]
 pts (x1,y1,c) wid = [(x1+(c/w)*x):+(y1+(c/w)*y)|x<-[0..w],y<-[0..w]] where w = fromIntegral wid
 displayMap = do
-	w <- windowLength >>= (return . fromIntegral . subtract 1)
-	f <- get func
+	w <- windowLength >>= return . fromIntegral . subtract 1
 	xy <- get xyold
 	t <- getPOSIXTime
-	fractal <- get fractal
-	unsafeRenderPrimitive Points $ zipWithM_ (\v c->vertex v >> color c) [Vertex2 a b|a<-[0..w],b<-[0..w]] $ parBuffer 600 rwhnf $ map (fst (head fractal) (f*(snd $ head fractal))) $ pts xy w
+	func <- get func
+	finc <- get finc
+	fiva <- get fiva
+	unsafeRenderPrimitive Points $ zipWithM_ (\v c->vertex v >> color c) [Vertex2 a b|a<-[0..w],b<-[0..w]] $ parBuffer 600 rwhnf $ map (func (fiva*finc)) $ pts xy w
 	getPOSIXTime >>= putStrLn . show . subtract t
 
 doubleToGF = unsafeCoerce . double2Float
 hsvrgb :: Double -> Double -> Double -> Color3 GLfloat
-hsvrgb h s v = let
+hsvrgb !h !s !v = let
 	p=doubleToGF $ v-s*v
 	q=doubleToGF $ v-6*h*s*v
 	t=doubleToGF $ v-s*v+6*h*s*v
@@ -97,12 +109,10 @@ hsvrgb h s v = let
 
 magsqr,magnitude :: Complex Double -> Double
 magsqr (a:+b) = a*a+b*b
-magnitude (a:+b) = if x == 0 then 0 else x*sqrt(1+(y*y)/(x*x)) where
-	x = max (abs a) (abs b)
-	y = min (abs a) (abs b)
+magnitude = sqrt . magsqr
 
 newraph f g 0 x = (x,0)
-newraph f g m !x = if magsqr(f x)<0.00000005 then (x,m) else newraph f g (m-1) (x-f x/g x)
+newraph f g m !x = if magnitude(f x)<0.00000005 then (x,m) else newraph f g (m-1) (x-f x/g x)
 
 newton :: (Complex Double -> Complex Double) -> (Complex Double -> Complex Double) -> Int -> Complex Double -> Color3 GLfloat
 newton f g z xy = hsvrgb (0.5+atan2 y x/(2*pi)) 1 (fromIntegral zz/fromIntegral z)
