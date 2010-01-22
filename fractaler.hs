@@ -4,7 +4,7 @@ module Main(main) where
 import Graphics.UI.GLUT
 import Data.Time.Clock.POSIX(getPOSIXTime)
 import Data.IORef
-import Data.Complex
+import Data.Complex hiding (magnitude)
 import Control.Monad
 import Control.Parallel.Strategies
 import System.IO.Unsafe(unsafePerformIO)
@@ -14,16 +14,18 @@ import Unsafe.Coerce(unsafeCoerce)
 {-# NOINLINE func#-}
 func = unsafePerformIO $ newIORef 2
 {-# NOINLINE xyold#-}
-xyold = unsafePerformIO $ newIORef (-2,-2,2,2)
+xyold = unsafePerformIO $ newIORef (-2,-2,4)
 {-# NOINLINE xynew#-}
 xynew = unsafePerformIO $ newIORef (0,0)
 {-# NOINLINE fractal#-}
 fractal = unsafePerformIO $ newIORef $ cycle [
 	(mandel,100),
-	(juliadagger,100),
-	(juliaeg,100),
 	(newtoneg,5),
+	(juliaeg,100),
 	(tricorn,100),
+	(newtontrig,5),
+	(juliadagger,100),
+	(newtontrigright,5),
 	(burningship,100),
 	(nodoub,100),
 	(yxmandel,100)]
@@ -51,70 +53,77 @@ reshaper (Size xx yy) = let x=min xx yy in do
 windowLength = get windowSize >>= (\(Size w h)->return w)
 zoomAdjust (Position x y) = do
 	w <- windowLength
-	(a,c,b,d) <- get xyold
-	return $! (a+(fromIntegral x/fromIntegral w)*(b-a),c+(fromIntegral y/fromIntegral w)*(d-c))
+	(a,b,c) <- get xyold
+	return $! (a+(fromIntegral x/fromIntegral w)*c,b+(fromIntegral y/fromIntegral w)*c)
 displayZoom (MouseButton LeftButton) Down _ xy = zoomAdjust xy >>= (xynew$=)
 displayZoom (MouseButton LeftButton) Up _ xy = do
 	(xn,yn) <- get xynew
 	(x,y) <- zoomAdjust xy
-	(x1,y1,x2,y2) <- get xyold
-	(x1,y1,x2,y2) <- return (if x==xn && y==yn then (x-x2+x1,y-y2+y1,x+x2-x1,y+y2-y1)
-		else (min x xn,min y yn,max x xn,max y yn))
-	xyold $= (x1,y1,x1+max (x2-x1) (y2-y1),y1+max (x2-x1) (y2-y1))
-	xyon <- get xyold
-	windowTitle $= show xyon
+	xyn <- if x==xn && y==yn then do
+			(_,_,c) <- get xyold
+			return (x-c,y-c,c*2)
+		else return (min x xn,min y yn,max (abs $ x-xn) (abs $ y-yn))
+	xyold $= xyn
+	windowTitle $= show xyn
 	postRedisplay Nothing
 displayZoom (MouseButton RightButton) Down _ _ = fractal $~ tail >> postRedisplay Nothing
 displayZoom _ _ _ _ = return ()
 
+pts :: (Double,Double,Double) -> GLshort -> [Complex Double]
+pts (x1,y1,c) wid = [(x1+(c/w)*x):+(y1+(c/w)*y)|x<-[0..w],y<-[0..w]] where w = fromIntegral wid
 displayMap = do
 	w <- windowLength >>= (return . fromIntegral . subtract 1)
 	f <- get func
 	xy <- get xyold
 	t <- getPOSIXTime
 	fractal <- get fractal
-	unsafeRenderPrimitive Points $ zipWithM_ (\v c->vertex v >> color c) ([Vertex2 a b|a<-[0..w],b<-[0..w]]::[Vertex2 GLshort]) $ parBuffer 600 rwhnf $ map (fst (head fractal) (f*(snd $ head fractal))) $ pts xy w
+	unsafeRenderPrimitive Points $ zipWithM_ (\v c->vertex v >> color c) [Vertex2 a b|a<-[0..w],b<-[0..w]] $ parBuffer 600 rwhnf $ map (fst (head fractal) (f*(snd $ head fractal))) $ pts xy w
 	getPOSIXTime >>= putStrLn . show . subtract t
-pts :: (Double,Double,Double,Double) -> GLshort -> [Complex Double]
-pts (x1,y1,x2,y2) wid = [(x1+((x2-x1)/w)*x):+(y1+((y2-y1)/w)*y)|x<-[0..w],y<-[0..w]] where w = fromIntegral wid
 
 doubleToGF = unsafeCoerce . double2Float
-magsqr (x:+y) = x^2+y^2
+hsvrgb :: Double -> Double -> Double -> Color3 GLfloat
+hsvrgb h s v = let
+	p=doubleToGF $ v-s*v
+	q=doubleToGF $ v-6*h*s*v
+	t=doubleToGF $ v-s*v+6*h*s*v
+	x=doubleToGF v
+	in case mod (floor $ 6*h) 6 of
+		0->Color3 x t p
+		1->Color3 q x p
+		2->Color3 p x t
+		3->Color3 p q x
+		4->Color3 t p x
+		5->Color3 x p q
 
-derive f x = (f (x+d)-f x)/d where d=0.0000000000005
-newraph 0 f x = x
-newraph !m f !x = if magsqr (f x) < 0.5 then x else newraph (m-1) f (x-f x/derive f x)
-newraphic 0 f !x = (x,0)
-newraphic !m f !x = if magsqr (f x) < 0.5 then (x,m) else newraphic (m-1) f (x-f x/derive f x)
+magsqr,magnitude :: Complex Double -> Double
+magsqr (a:+b) = a*a+b*b
+magnitude (a:+b) = if x == 0 then 0 else x*sqrt(1+(y*y)/(x*x)) where
+	x = max (abs a) (abs b)
+	y = min (abs a) (abs b)
 
-newraphd 0 f g x = x
-newraphd !m f g !x = if realPart(f x)^2+imagPart(f x)^2<0.5 then x else newraphd (m-1) f g (x-f x/g x)
-newraphicd 0 f g !x = (x,0)
-newraphicd !m f g !x = if realPart(f x)^2+imagPart(f x)^2<0.5 then (x,m) else newraphicd (m-1) f g (x-f x/g x)
+newraph f g 0 x = (x,0)
+newraph f g m !x = if magsqr(f x)<0.00000005 then (x,m) else newraph f g (m-1) (x-f x/g x)
 
-newton :: (Complex Double -> Complex Double) -> Int -> Complex Double -> Color3 GLfloat
-newton f z xy = Color3 (fromIntegral zz/fromIntegral z) (doubleToGF x) (doubleToGF y)
-	where ((x:+y),zz)=newraphic z f xy
-newtoneg = newton (\x -> x^3-1)
-
-newtond :: (Complex Double -> Complex Double) -> (Complex Double -> Complex Double) -> Int -> Complex Double -> Color3 GLfloat
-newtond f g z xy = Color3 (fromIntegral zz) (doubleToGF x) (doubleToGF y)
-	where ((x:+y),zz)=newraphicd z f g xy
-newtondeg = newtond (\x -> x^3-1) (\x -> 3*x^2)
+newton :: (Complex Double -> Complex Double) -> (Complex Double -> Complex Double) -> Int -> Complex Double -> Color3 GLfloat
+newton f g z xy = hsvrgb (0.5+atan2 y x/(2*pi)) 1 (fromIntegral zz/fromIntegral z)
+	where (x:+y,zz)=newraph f g z xy
+newtoneg = newton (\x -> x^5-1) (\x -> 5*x^4)
+newtontrig = newton (\x -> sin x^3-1) (\x -> 3*cos x^2)
+newtontrigright = newton (\x -> sin x^3-1) (\x -> 3*cos x*sin x^2)
 
 julia :: Double -> Double -> Int -> Complex Double -> Color3 GLfloat
 julia x y zz (xx:+yy) = f zz xx yy
-	where f !z zr zi
+	where f z zr zi
 		|z==0 = Color3 0 0 0
 		|zr*zr*zi*zi<4 = f (z-1) (zr*zr-zi*zi+x) (2*zr*zi+y)
 		|True = Color3 ((fromIntegral z/fromIntegral zz)^3) ((fromIntegral z/fromIntegral zz)^2) (fromIntegral z/fromIntegral zz)
-juliaeg = julia (-1) (0.2) 
+juliaeg = julia (-0.35) 0.75
 
 juliadagger :: Int -> Complex Double -> Color3 GLfloat
-juliadagger zz (x:+y) = f zz (x:+y)
-	where f !z (zr:+zi)
+juliadagger zz (x:+y) = f zz x y
+	where f z zr zi
 		|z==0 = Color3 0 0 0
-		|zr*zr*zi*zi<4 = f (z-1) ((zr*zr-zi*zi+cos (atan2 y x)):+(2*zr*zi+sin (atan2 y x)))
+		|zr*zr*zi*zi<4 = f (z-1) (zr*zr-zi*zi+cos (atan2 y x)) (2*zr*zi+sin (atan2 y x))
 		|True = Color3 ((fromIntegral z/fromIntegral zz)^3) ((fromIntegral z/fromIntegral zz)^2) (fromIntegral z/fromIntegral zz)
 
 mandel :: Int -> Complex Double -> Color3 GLfloat
