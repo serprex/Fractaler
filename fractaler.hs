@@ -11,11 +11,10 @@ import System.IO.Unsafe(unsafePerformIO)
 import GHC.Float(double2Float)
 import Unsafe.Coerce(unsafeCoerce)
 
-i=(0:+1)
 {-# NOINLINE func#-}
-func = unsafePerformIO $ newIORef $ mandel
+func = unsafePerformIO $ newIORef $ complex id--mandel
 {-# NOINLINE finc#-}
-finc = unsafePerformIO $ newIORef 100
+finc = unsafePerformIO $ newIORef 1
 {-# NOINLINE fiva#-}
 fiva = unsafePerformIO $ newIORef 2
 {-# NOINLINE xyold#-}
@@ -57,13 +56,15 @@ main = do
 			MenuEntry "phase" $ meop (newton ((:+0) . phase) (\x->1/(1+x*x))) 5
 		],
 		SubMenu "Complex" $ Menu [
-			MenuEntry "(x2-1)(x-2-i)2/(x2+2+2i)" $ meop (complex (\x->(x^2-1)*(x-2-i)^2/(x^2+2+2*i))) 1,
+			MenuEntry "x" $ meop (complex id) 1,
+			MenuEntry "(x2-1)(x-2-i)2/(x2+2+2i)" $ meop (complex (\x->(x^2-1)*(x-(2:+(-1)))^2/(x^2+(2:+2)))) 1,
+			MenuEntry "sin" $ meop (complex sin) 1
 		]]
 	mainLoop
 	where meop x y = func $= x >> finc $= y >> xydrt $= True
 
 detailZoom _ dir _ = do
-	fiva $~ (max 1 . (+) dir)
+	fiva $~ (max 0 . (+) dir)
 	get fiva >>= (windowTitle$=) . show
 	postRedisplay Nothing
 
@@ -105,15 +106,25 @@ displayMap = do
 
 doubleToGF = unsafeCoerce . double2Float
 hvrgb :: Complex Double -> Double -> Color3 GLfloat
-hvrgb !hc !v = Color3 (l 0) (l 4) (l 2) where
-	h=3+phase hc*3/pi
-	l=doubleToGF . (!!) [v,v-h*v*v,0,0,h*v,v] . (flip rem) 6 . (+(truncate h))
+hvrgb !hc !v = (\(a,b,c)->Color3 (doubleToGF a) (doubleToGF b) (doubleToGF c)) $ case truncate h of
+	0->(v,v*hf,0)
+	1->(v*(1-hf),v,0)
+	2->(0,v,v*hf)
+	3->(0,v*(1-hf),v)
+	4->(v*hf,0,v)
+	5->(v,0,v*(1-hf))
+	where
+		h=3+phase hc*3/pi
+		hf=h-(fromIntegral . truncate) h
+
 magsqr,magnitude :: Complex Double -> Double
 magsqr (a:+b) = a*a+b*b
 magnitude = sqrt . magsqr
 
 complex :: (Complex Double -> Complex Double) -> Int -> Complex Double -> Color3 GLfloat
-complex f z xy = hvrgb (f xy) $ logBase (fromIntegral z) $ magnitude (f xy)+1
+complex f 0 xy = hvrgb (f xy) 1
+complex f 1 xy = hvrgb (f xy) $ magnitude $ f xy
+complex f z xy = hvrgb (f xy) $ logBase (fromIntegral z) $ (magnitude $ f xy)+1
 
 newton :: (Complex Double -> Complex Double) -> (Complex Double -> Complex Double) -> Int -> Complex Double -> Color3 GLfloat
 newton f g z xy = hvrgb (x:+y) (fromIntegral zz/fromIntegral z)
