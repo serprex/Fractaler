@@ -5,6 +5,7 @@ import Graphics.UI.GLUT
 import Data.Time.Clock.POSIX(getPOSIXTime)
 import Data.IORef
 import Data.Complex hiding (magnitude)
+import Data.List(foldl')
 import Control.Monad
 import Control.Parallel.Strategies
 import System.IO.Unsafe(unsafePerformIO)
@@ -12,9 +13,9 @@ import GHC.Float(double2Float)
 import Unsafe.Coerce(unsafeCoerce)
 
 {-# NOINLINE func#-}
-func = unsafePerformIO $ newIORef $ complex id--mandel
+func = unsafePerformIO $ newIORef mandel
 {-# NOINLINE finc#-}
-finc = unsafePerformIO $ newIORef 1
+finc = unsafePerformIO $ newIORef 100
 {-# NOINLINE fiva#-}
 fiva = unsafePerformIO $ newIORef 2
 {-# NOINLINE xyold#-}
@@ -33,32 +34,35 @@ main = do
 	reshapeCallback $= Just reshaper
 	mouseWheelCallback $= Just detailZoom
 	attachMenu RightButton $ Menu [
-		MenuEntry "reset" $ xyold$=(-2,-2,4) >> xydrt$=True,
+		MenuEntry "Reset" $ xyold$=(-2,-2,4) >> xydrt$=True,
+		MenuEntry "Julia" $ do
+			re <- getLine
+			im <- getLine
+			meop (julia (readDoub re) (readDoub im)) 100,
 		SubMenu "Fantou" $ Menu [
-			MenuEntry "Generic" $ meop mandel 100,
+			MenuEntry "Mandelbrot" $ meop mandel 100,
 			MenuEntry "Tricorn" $ meop tricorn 100,
 			MenuEntry "Burningship" $ meop burningship 100,
 			MenuEntry "Half I" $ meop nodoub 100,
 			MenuEntry "Dagger" $ meop dagger 100,
 			MenuEntry "XxY" $ meop yxmandel 100
 		],
-		SubMenu "Julia" $ Menu [
-			MenuEntry "-.35 .75" $ meop (julia (-0.35) 0.75) 100,
-			MenuEntry ".285 0" $ meop (julia 0.285 0) 100,
-			MenuEntry ".285 .01" $ meop (julia 0.285 0.01) 100,
-			MenuEntry "-.8 .156" $ meop (julia (-0.8) 0.156) 100
-		],
 		SubMenu "Newton" $ Menu [
 			MenuEntry "x5-1" $ meop (newton (\x->x^5-1) (\x->5*x^4)) 5,
 			MenuEntry "x5+3x3-x2-1" $ meop (newton (\x->x^5+3*x^3-x^2-1) (\x->5*x^4+9*x^2+2*x)) 5,
 			MenuEntry "(sin x)3-1" $ meop (newton (\x->sin x^3-1) (\x->3*cos x*sin x^2)) 5,
 			MenuEntry "asin" $ meop (newton asin (\x->1/sqrt(1-x*x))) 5,
-			MenuEntry "phase" $ meop (newton ((:+0) . phase) (\x->1/(1+x*x))) 5
+			MenuEntry "phase" $ meop (newton ((:+0) . phase) (\x->1/(1+x*x))) 5,
+			MenuEntry "xx" $ meop (newton (\x->x**x) (\x->exp(x*log x)*(1+log x))) 5,
+			MenuEntry "xx-1" $ meop (newton (\x->x**x-1) (\x->exp(x*log x)*(1+log x))) 5,
+			MenuEntry "xx+x2-x" $ meop (newton (\x->x**x+x*x-1) (\x->exp(x*log x)*(1+log x)+x+x)) 5,
+			MenuEntry "xx-sin x" $ meop (newton (\x->x**x-sin x) (\x->exp(x*log x)*(1+log x)+cos x)) 5
 		],
 		SubMenu "Complex" $ Menu [
 			MenuEntry "x" $ meop (complex id) 1,
 			MenuEntry "(x2-1)(x-2-i)2/(x2+2+2i)" $ meop (complex (\x->(x^2-1)*(x-(2:+(-1)))^2/(x^2+(2:+2)))) 1,
-			MenuEntry "sin" $ meop (complex sin) 1
+			MenuEntry "sin" $ meop (complex sin) 1,
+			MenuEntry "sin . cos" $ meop (complex (sin . cos)) 1
 		]]
 	mainLoop
 	where meop x y = func $= x >> finc $= y >> xydrt $= True
@@ -90,6 +94,11 @@ displayZoom (MouseButton LeftButton) Up _ xy = do
 		xyold $= xyn
 		windowTitle $= show xyn
 		postRedisplay Nothing
+displayZoom (MouseButton MiddleButton) Down _ xy = do
+	(x,y) <- zoomAdjust xy
+	func $= julia x y
+	finc $= 100
+	postRedisplay Nothing
 displayZoom _ _ _ _ = return ()
 
 pts :: (Double,Double,Double) -> GLshort -> [Complex Double]
@@ -104,6 +113,7 @@ displayMap = do
 	unsafeRenderPrimitive Points $ zipWithM_ (\v c->vertex v >> color c) [Vertex2 a b|a<-[0..w],b<-[0..w]] $ parBuffer 600 rwhnf $ map (func $ fiva*finc) $ pts xy w
 	getPOSIXTime >>= putStrLn . show . subtract t
 
+readDoub x = if x/="" && all (flip elem $ '.':' ':['0'..'9']) x && (sum $ map (fromEnum . (==) '.') x)<2 then read x else 0
 doubleToGF = unsafeCoerce . double2Float
 hvrgb :: Complex Double -> Double -> Color3 GLfloat
 hvrgb !hc !v = (\(a,b,c)->Color3 (doubleToGF a) (doubleToGF b) (doubleToGF c)) $ case truncate h of
@@ -113,6 +123,7 @@ hvrgb !hc !v = (\(a,b,c)->Color3 (doubleToGF a) (doubleToGF b) (doubleToGF c)) $
 	3->(0,v*(1-hf),v)
 	4->(v*hf,0,v)
 	5->(v,0,v*(1-hf))
+	x->if x>0 then (0.75,0.75,0.75) else (0.25,0.25,0.25)
 	where
 		h=3+phase hc*3/pi
 		hf=h-(fromIntegral . truncate) h
@@ -124,10 +135,10 @@ magnitude = sqrt . magsqr
 complex :: (Complex Double -> Complex Double) -> Int -> Complex Double -> Color3 GLfloat
 complex f 0 xy = hvrgb (f xy) 1
 complex f 1 xy = hvrgb (f xy) $ magnitude $ f xy
-complex f z xy = hvrgb (f xy) $ logBase (fromIntegral z) $ (magnitude $ f xy)+1
+complex f z xy = hvrgb (f xy) $ logBase (fromIntegral z) $ magnitude (f xy)+1
 
 newton :: (Complex Double -> Complex Double) -> (Complex Double -> Complex Double) -> Int -> Complex Double -> Color3 GLfloat
-newton f g z xy = hvrgb (x:+y) (fromIntegral zz/fromIntegral z)
+newton f g z xy = hvrgb (x:+y) $ fromIntegral zz/fromIntegral z
 	where
 		newraph f g m x = if m==0 then (x,0) else if magsqr(f x)<1/fromIntegral m then (x,m) else newraph f g (m-1) (x-f x/g x)
 		(x:+y,zz)=newraph f g z xy

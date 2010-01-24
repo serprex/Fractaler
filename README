@@ -1,1 +1,5 @@
-Scroll wheel changes detail. Left press one corner, release on the opposite corner. A square will be selected to zoom into. Note the word square. Also note that a click will zoom out. Right click carries menu
+Left press one corner, release on the opposite corner. A square will be selected to zoom into. Note the word square
+Also note that a click will zoom out
+Scroll wheel changes detail
+Right click results in the menu
+Middle click changes to a the Julia Set of the point clicked
