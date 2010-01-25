@@ -1,7 +1,8 @@
 {-# LANGUAGE BangPatterns#-}
 {-# OPTIONS -fexcess-precision -funbox-strict-fields -feager-blackholing -O2#-}
 module Templates where
-import Graphics.UI.GLUT
+import Graphics.Rendering.OpenGL(GLfloat)
+import Graphics.Rendering.OpenGL.GL.VertexSpec
 import Data.Complex hiding (magnitude)
 import GHC.Float(double2Float)
 import Unsafe.Coerce(unsafeCoerce)
@@ -33,10 +34,10 @@ complex f z xy = hvrgb (f xy) $ case z of
 	0->1
 	1->magnitude $ f xy
 	_->logBase (fromIntegral z) $ magnitude (f xy)+1
-newton f g z xy = hvrgb (x:+y) $ fromIntegral zz/fromIntegral z
+newton !f !g z xy = hvrgb (x:+y) $ fromIntegral zz/fromIntegral z
 	where
-		newraph f g m x = if m==0 then (x,0) else if magsqr(f x)<1/fromIntegral m then (x,m) else newraph f g (m-1) (x-f x/g x)
-		(x:+y,zz)=newraph f g z xy
+		newraph m x = if magsqr(f x)<=1/fromIntegral m then (x,m) else newraph (m-1) (x-f x/g x)
+		(x:+y,zz)=newraph z xy
 julia (x:+y) zz (xx:+yy) = f zz xx yy
 	where f z zr zi
 		|z==0 = Color3 0 0 0

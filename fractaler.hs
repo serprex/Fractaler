@@ -36,17 +36,15 @@ main = do
 	attachMenu RightButton $ Menu [
 		MenuEntry "Reset" $ xyold$=(-2,-2,4),
 		MenuEntry "Julia" $ do
-			re <- getPrompt "Real coordinate"
-			im <- getPrompt "Imag coordinate"
-			putStrLn $ re++" "++im
-			meop (julia $ readDoub re:+readDoub im) 100,
+			cm <- getPrompt "Coordinate"
+			putStrLn cm
+			meop (julia $ readComp cm) 100,
 		SubMenu "Fantou" $ Menu [
 			MenuEntry "Mandelbrot" $ meop mandel 100,
-			MenuEntry "Multibrot" $ do
-			re <- getPrompt "Real component"
-			im <- getPrompt "Imag component"
-			putStrLn $ re++" "++im
-			meop (multibrot $ readDoub re:+readDoub im) 100,
+			MenuEntry "Multi>>" $ do
+			cm <- getPrompt "Exponent"
+			putStrLn cm
+			meop (multibrot $ readComp cm) 100,
 			MenuEntry "Tricorn" $ meop tricorn 100,
 			MenuEntry "Burningship" $ meop burningship 100,
 			MenuEntry "Half I" $ meop nodoub 100,
@@ -66,8 +64,8 @@ main = do
 			MenuEntry "phase" $ meop (newton ((:+0) . phase) (\x->1/(1+x*x))) 5,
 			MenuEntry "xx" $ meop (newton (\x->x**x) (\x->exp(x*log x)*(1+log x))) 5,
 			MenuEntry "xx-1" $ meop (newton (\x->x**x-1) (\x->exp(x*log x)*(1+log x))) 5,
-			MenuEntry "xx+x2-x" $ meop (newton (\x->x**x+x*x-1) (\x->exp(x*log x)*(1+log x)+x+x)) 5,
-			MenuEntry "xx-sin x" $ meop (newton (\x->x**x-sin x) (\x->exp(x*log x)*(1+log x)+cos x)) 5
+			MenuEntry "xx+x2-x" $ meop (newton (\x->x**x+x*x-1) (\x->x**x*(1+log x)+x+x)) 5,
+			MenuEntry "xx-sin x" $ meop (newton (\x->x**x-sin x) (\x->x**x*(1+log x)+cos x)) 5
 		],
 		SubMenu "Complex" $ Menu [
 			MenuEntry "Poly>>" $ do
@@ -134,18 +132,21 @@ displayMap = do
 	getPOSIXTime >>= putStrLn . show . subtract t
 	flush
 
-diffPoly :: [Complex Double] -> [Complex Double]
+readComp :: String -> Complex Double
 readPoly :: String -> [Complex Double]
+diffPoly :: [Complex Double] -> [Complex Double]
 makePolyF :: [Complex Double] -> Complex Double -> Complex Double
-readDoub :: String -> Double
-diffPoly x = zipWith (*) (tail x) (map (:+0) [1..])
-readPoly x = read $ '[':conv x False
+readComp x = (\(x,y)->(if x==[] then 0 else readDoub x):+if y==[] then 0 else readDoub $ tail y) $ break (=='+') x
 	where
-		conv [] cm = if cm then "]" else ":+0]"
-		conv (x:xs) cm = (if x==',' && not cm then ":+0," else if x=='+' then ":+ " else [x])++conv xs (x/=','&&(cm||x=='+'))
+		readDoub [] = 0
+		readDoub (' ':x) = readDoub x
+		readDoub ('-':x) = negate $ readDoub x
+		readDoub x = if all (flip elem $ "0123456789. ") x && sum(map (fromEnum . (=='.')) x)<2 then read ('0':x) else 0
+readPoly x = readPoly $ break (==',') x
+	where
+		readPoly (x,[]) = [readComp x]
+		readPoly (x,_:xs) = readComp x:(readPoly $ break (==',') xs)
+diffPoly [] = []
+diffPoly (_:x) = zipWith (*) x (map (:+0) [1..])
 makePolyF [] y = 0
 makePolyF (xh:x) y = xh+(sum $ zipWith (*) x $ map (y^) ([1..]::[Int]))
-readDoub [] = 0
-readDoub x@(h:t) =
-	if h == '-' then negate $ readDoub t
-	else if all (flip elem $ '.':' ':['0'..'9']) x && (sum $ map (fromEnum . (==) '.') x)<2 then read x else 0
