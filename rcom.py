@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 from random import random
 try:
 	while 1:

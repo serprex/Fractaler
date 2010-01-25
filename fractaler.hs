@@ -60,7 +60,7 @@ main = do
 			MenuEntry "Poly>>" $ do
 				f <- getPrompt "Coefficients"
 				putStrLn f
-				meop (newton (makePolyF (readPoly f)) (makePolyF (diffPoly (readPoly f)))) 5,
+				meop (newton (makePolyF $ readPoly f) (makePolyF $ diffPoly $ readPoly f)) 5,
 			MenuEntry "x5-1" $ meop (newton (\x->x^5-1) (\x->5*x^4)) 5,
 			MenuEntry "x5+3x3-x2-1" $ meop (newton (\x->x^5+3*x^3-x^2-1) (\x->5*x^4+9*x^2+2*x)) 5,
 			MenuEntry "2x3-2x+2" $ meop (newton (\x->2*x^3-2*x+2) (\x->6*x^2-2)) 5,
@@ -76,7 +76,8 @@ main = do
 			MenuEntry "Poly>>" $ do
 				f <- getPrompt "Coefficients"
 				putStrLn f
-				meop (complex (makePolyF (readPoly f))) 1,
+				meop (complex $ makePolyF $ readPoly f) 1,
+			MenuEntry "123" $ meop (complex (\x->1+2*x+3*x*x)) 1,
 			MenuEntry "x" $ meop (complex id) 1,
 			MenuEntry "xx" $ meop (complex (\x->x**x)) 1,
 			MenuEntry "(x2-1)(x-2-i)2/(x2+2+2i)" $ meop (complex (\x->(x^2-1)*(x-(2:+(-1)))^2/(x^2+(2:+2)))) 1,
@@ -99,12 +100,12 @@ reshaper (Size xx yy) = let x=min xx yy in do
 	viewport $= (Position 0 0,Size x x)
 	ortho 0 (fromIntegral x) (fromIntegral x) 0 0 1
 
-windowLength = get windowSize >>= (\(Size w h)->return w)
+zoomAdjust :: Position -> IO (Double,Double)
 zoomAdjust (Position x y) = do
-	w <- windowLength
+	(Size w _) <- get windowSize
 	(a,b,c) <- get xyold
 	return $! (a+(fromIntegral x/fromIntegral w)*c,b+(fromIntegral y/fromIntegral w)*c)
-displayZoom (Char ' ') Down _ _ = func $= (\_ _ -> Color3 0 0 0) >> finc $= 1
+displayZoom (Char ' ') Down _ _ = func $= (\_ _ -> Color3 0 0 0) >> finc $= 1 >> postRedisplay Nothing
 displayZoom (MouseButton LeftButton) Down _ xy = xydrt $= True >> zoomAdjust xy >>= (xynew$=)
 displayZoom (MouseButton LeftButton) Up _ xy = do
 	xyd <- get xydrt
@@ -127,7 +128,7 @@ displayZoom _ _ _ _ = xydrt $= False
 pts :: (Double,Double,Double) -> GLshort -> [Complex Double]
 pts (x1,y1,c) wid = [(x1+(c/w)*x):+(y1+(c/w)*y)|x<-[0..w],y<-[0..w]] where w = fromIntegral wid
 displayMap = do
-	w <- windowLength >>= return . fromIntegral . subtract 1
+	w <- get windowSize >>= return . fromIntegral . (\(Size w _)-> w-1)
 	xy <- get xyold
 	t <- getPOSIXTime
 	func <- get func
@@ -138,20 +139,24 @@ displayMap = do
 	flush
 
 diffPoly :: [Complex Double] -> [Complex Double]
-diffPoly [] = []
-diffPoly (x:xs) = zipWith (*) xs (map (:+0) [1..])
 readPoly :: String -> [Complex Double]
+makePolyF :: [Complex Double] -> Complex Double -> Complex Double
+readDoub :: String -> Double
+diffPoly x = zipWith (*) (tail x) (map (:+0) [1..])
 readPoly x = read $ '[':conv x False
 	where
 		conv [] cm = if cm then "]" else ":+0]"
 		conv (x:xs) cm = (if x==',' && not cm then ":+0," else if x=='+' then ":+ " else [x])++conv xs (x/=','&&(cm||x=='+'))
-makePolyF :: [Complex Double] -> Complex Double -> Complex Double
-makePolyF !x !y = sum $ zipWith (*) x (map (y^) ([1..]::[Int]))
-
+makePolyF [] y = 0
+makePolyF (xh:x) y = xh+(sum $ zipWith (*) x $ map (y^) ([1..]::[Int]))
+readDoub [] = 0
 readDoub x@(h:t) =
 	if h == '-' then negate $ readDoub t
-	else if x/="" && all (flip elem $ '.':' ':['0'..'9']) x && (sum $ map (fromEnum . (==) '.') x)<2 then read x else 0
+	else if all (flip elem $ '.':' ':['0'..'9']) x && (sum $ map (fromEnum . (==) '.') x)<2 then read x else 0
+
+doubleToGF :: Double -> GLfloat
 doubleToGF = unsafeCoerce . double2Float
+
 hvrgb :: Complex Double -> Double -> Color3 GLfloat
 hvrgb !hc !v = (\(a,b,c)->Color3 (doubleToGF a) (doubleToGF b) (doubleToGF c)) $ case truncate h of
 	0->(v,v*hf,0)
@@ -170,66 +175,52 @@ magsqr (a:+b) = a*a+b*b
 magnitude = sqrt . magsqr
 
 complex :: (Complex Double -> Complex Double) -> Int -> Complex Double -> Color3 GLfloat
-complex f 0 xy = hvrgb (f xy) 1
-complex f 1 xy = hvrgb (f xy) $ magnitude $ f xy
-complex f z xy = hvrgb (f xy) $ logBase (fromIntegral z) $ magnitude (f xy)+1
-
 newton :: (Complex Double -> Complex Double) -> (Complex Double -> Complex Double) -> Int -> Complex Double -> Color3 GLfloat
+tricorn,burningship,nodoub,yxmandel,dagger,mandel :: Int -> Complex Double -> Color3 GLfloat
+multibrot,julia :: Complex Double -> Int -> Complex Double -> Color3 GLfloat
+complex f z xy = hvrgb (f xy) $ case z of
+	0->1
+	1->magnitude $ f xy
+	_->logBase (fromIntegral z) $ magnitude (f xy)+1
 newton f g z xy = hvrgb (x:+y) $ fromIntegral zz/fromIntegral z
 	where
 		newraph f g m x = if m==0 then (x,0) else if magsqr(f x)<1/fromIntegral m then (x,m) else newraph f g (m-1) (x-f x/g x)
 		(x:+y,zz)=newraph f g z xy
-
-julia :: (Complex Double) -> Int -> Complex Double -> Color3 GLfloat
 julia (x:+y) zz (xx:+yy) = f zz xx yy
 	where f z zr zi
 		|z==0 = Color3 0 0 0
 		|zr*zr*zi*zi<4 = f (z-1) (zr*zr-zi*zi+x) (2*zr*zi+y)
 		|True = Color3 ((fromIntegral z/fromIntegral zz)^3) ((fromIntegral z/fromIntegral zz)^2) (fromIntegral z/fromIntegral zz)
-
-dagger :: Int -> Complex Double -> Color3 GLfloat
-dagger zz (x:+y) = f zz x y
-	where f z zr zi
-		|z==0 = Color3 0 0 0
-		|zr*zr*zi*zi<4 = f (z-1) (zr*zr-zi*zi+cos (atan2 y x)) (2*zr*zi+sin (atan2 y x))
-		|True = Color3 ((fromIntegral z/fromIntegral zz)^3) ((fromIntegral z/fromIntegral zz)^2) (fromIntegral z/fromIntegral zz)
-
-mandel :: Int -> Complex Double -> Color3 GLfloat
 mandel ii (x:+y) = f ii x y
 	where f i !zr !zi
 		|i==0 = Color3 0 0 0
 		|zr*zr+zi*zi<4 = f (i-1) (zr*zr-zi*zi+x) (2*zr*zi+y)
 		|True = Color3 ((fromIntegral i/fromIntegral ii)^3) ((fromIntegral i/fromIntegral ii)^2) (fromIntegral i/fromIntegral ii)
-
-multibrot :: Complex Double -> Int -> Complex Double -> Color3 GLfloat
+dagger zz (x:+y) = f zz x y
+	where f z zr zi
+		|z==0 = Color3 0 0 0
+		|zr*zr*zi*zi<4 = f (z-1) (zr*zr-zi*zi+cos (atan2 y x)) (2*zr*zi+sin (atan2 y x))
+		|True = Color3 ((fromIntegral z/fromIntegral zz)^3) ((fromIntegral z/fromIntegral zz)^2) (fromIntegral z/fromIntegral zz)
 multibrot ex ii xy = f ii xy
 	where f i z
 		|i==0 = Color3 0 0 0
 		|magsqr z<4 = f (i-1) (z**ex+xy)
 		|True = Color3 ((fromIntegral i/fromIntegral ii)^3) ((fromIntegral i/fromIntegral ii)^2) (fromIntegral i/fromIntegral ii)
-
-yxmandel :: Int -> Complex Double -> Color3 GLfloat
 yxmandel zz (x:+y) = f zz x y
 	where f z !zr !zi
 		|z==0 = Color3 0 0 0
 		|zr*zr+zi*zi<4 = f (z-1) (zr*zr-zi*zi+y*x) (2*zr*zi+y)
 		|True = Color3 ((fromIntegral z/fromIntegral zz)^3) ((fromIntegral z/fromIntegral zz)^2) (fromIntegral z/fromIntegral zz)
-
-nodoub :: Int -> Complex Double -> Color3 GLfloat
 nodoub zz (x:+y) = f zz x y
 	where f z !zr !zi
 		|z==0 = Color3 0 0 0
 		|zr*zr+zi*zi<4 = f (z-1) (zr*zr-zi*zi+x) (zr*zi+y)
 		|True = Color3 ((fromIntegral z/fromIntegral zz)^3) ((fromIntegral z/fromIntegral zz)^2) (fromIntegral z/fromIntegral zz)
-
-tricorn :: Int -> Complex Double -> Color3 GLfloat
 tricorn zz (x:+y) = f zz x y
 	where f z !zr !zi
 		|z==0 = Color3 0 0 0
 		|zr*zr+zi*zi<4 = f (z-1) (zi*zi-zr*zr+x) (2*zr*zi+y)
 		|True = Color3 ((fromIntegral z/fromIntegral zz)^3) ((fromIntegral z/fromIntegral zz)^2) (fromIntegral z/fromIntegral zz)
-
-burningship :: Int -> Complex Double -> Color3 GLfloat
 burningship zz (x:+y) = f zz x y
 	where f z !zr !zi
 		|z==0 = Color3 0 0 0

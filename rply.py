@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 from random import random,randint
 from sys import argv
 mxval=int(argv[1])*2 if len(argv)>1 else 6
