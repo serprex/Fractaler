@@ -149,4 +149,4 @@ readPoly x = readPoly $ break (==',') x
 diffPoly [] = []
 diffPoly (_:x) = zipWith (*) x (map (:+0) [1..])
 makePolyF [] y = 0
-makePolyF (xh:x) y = xh+(sum $ zipWith (*) x $ map (y^) ([1..]::[Int]))
+makePolyF (xh:x) y = xh+(sum $ zipWith (*) x $ iterate (y*) y)

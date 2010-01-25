@@ -1,7 +1,11 @@
 Left press one corner, release on the opposite corner. A square will be selected to zoom into. Note the word square
 Also note that a click will zoom out
-Scroll wheel changes detail
+Scroll changes detail
 Right click results in the menu. Suggestion is to press space to disable rendering before entering the menu
 Middle click changes to a the Julia Set of the point clicked
 
 Suggested parameters: +RTS -N -qb -qg -g1
+
+Input Syntax
+Complex numbers are specified as real+imag
+Polynomials are specified as a comma seperated list of complex numbers which are interpreted as coefficients to their respective indices
