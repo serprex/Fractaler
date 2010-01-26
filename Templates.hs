@@ -4,13 +4,13 @@ module Templates where
 import Graphics.Rendering.OpenGL(GLfloat)
 import Graphics.Rendering.OpenGL.GL.VertexSpec
 import Data.Complex hiding (magnitude)
-import GHC.Float(double2Float)
+import GHC.Float(double2Float,significand)
 import Unsafe.Coerce(unsafeCoerce)
 doubleToGF :: Double -> GLfloat
 doubleToGF = unsafeCoerce . double2Float
 
 hvrgb :: Complex Double -> Double -> Color3 GLfloat
-hvrgb hc !vv = (\(a,b,c)->Color3 (doubleToGF a) (doubleToGF b) (doubleToGF c)) $ case truncate h of
+hvrgb hc vv = (\(a,b,c)->Color3 (doubleToGF a) (doubleToGF b) (doubleToGF c)) $ case truncate h::Int of
 	0->(0,v-hf,v)
 	1->(hf,0,v)
 	2->(v,0,v-hf)
@@ -19,9 +19,11 @@ hvrgb hc !vv = (\(a,b,c)->Color3 (doubleToGF a) (doubleToGF b) (doubleToGF c)) $
 	5->(0,v,hf)
 	x->if x>0 then (0.75,0.75,0.75) else (0.25,0.25,0.25)
 	where
-		v=min 1 $ max vv (-1)--if vv>1 then 1 else if vv<(-1) then (-1) else vv
+		v=min vv 1
+		--v=vv --Fast. Good for Newtons, not so much for Complexes
+		--v=(abs . significand) vv --Discontinuities at pretty intervals. Good for Complexes, not so much for Newtons
 		h=3+phase hc*3/pi
-		hf=v*(h-(fromIntegral . truncate) h)
+		hf=v*(h-fromIntegral (truncate h::Int))
 
 magsqr,magnitude :: Complex Double -> Double
 magsqr (a:+b) = a*a+b*b

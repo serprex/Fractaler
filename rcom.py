@@ -2,7 +2,8 @@
 from random import random
 from sys import argv
 rng=int(argv[1])*2 if len(argv)>1 else 2
+sim=len(argv)>2
 def rand():return rng*(random()-.5)
 try:
-	while 1:print(repr(rand())+"+"+repr(rand()))
+	while 1:print(repr(rand())+("" if sim else "+"+repr(rand())))
 except:pass

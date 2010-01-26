@@ -13,9 +13,9 @@ import System.IO(hFlush,stdout)
 import Templates
 
 {-# NOINLINE func#-}
-func = unsafePerformIO $ newIORef mandel
+func = unsafePerformIO $ newIORef (\x y -> Color3 0 0 0)
 {-# NOINLINE finc#-}
-finc = unsafePerformIO $ newIORef 100
+finc = unsafePerformIO $ newIORef 1
 {-# NOINLINE fiva#-}
 fiva = unsafePerformIO $ newIORef 2
 {-# NOINLINE xyold#-}
@@ -38,13 +38,13 @@ main = do
 		MenuEntry "Julia" $ do
 				cm <- getPrompt "Coordinate"
 				putStrLn cm
-				meop (julia $! readComp cm) 100,
+				meop (julia $ readComp cm) 100,
 		SubMenu "Fantou" $ Menu [
 			MenuEntry "Mandelbrot" $ meop mandel 100,
 			MenuEntry "Multi>>" $ do
 				cm <- getPrompt "Exponent"
 				putStrLn cm
-				meop (multibrot $! readComp cm) 100,
+				meop (multibrot $ readComp cm) 100,
 			MenuEntry "Tricorn" $ meop tricorn 100,
 			MenuEntry "Burningship" $ meop burningship 100,
 			MenuEntry "Half I" $ meop nodoub 100,
