@@ -35,7 +35,7 @@ main = do
 	mouseWheelCallback $= Just detailZoom
 	attachMenu RightButton $ Menu [
 		MenuEntry "Reset" $ xyold$=(-2,-2,4),
-		MenuEntry "Julia" $ do
+		MenuEntry "Julia>>" $ do
 				cm <- getPrompt "Coordinate"
 				putStrLn cm
 				meop (julia $ readComp cm) 100,

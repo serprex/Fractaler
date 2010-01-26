@@ -1,6 +1,6 @@
 {-# LANGUAGE BangPatterns#-}
 {-# OPTIONS -fexcess-precision -funbox-strict-fields -feager-blackholing -O2#-}
-module Templates where
+module Templates(complex,newton,multibrot,julia,tricorn,burningship,nodoub,yxmandel,dagger,mandel) where
 import Graphics.Rendering.OpenGL(GLfloat)
 import Graphics.Rendering.OpenGL.GL.VertexSpec
 import Data.Complex hiding (magnitude)
@@ -8,6 +8,7 @@ import GHC.Float(double2Float,significand)
 import Unsafe.Coerce(unsafeCoerce)
 doubleToGF :: Double -> GLfloat
 doubleToGF = unsafeCoerce . double2Float
+
 
 hvrgb :: Complex Double -> Double -> Color3 GLfloat
 hvrgb hc vv = (\(a,b,c)->Color3 (doubleToGF a) (doubleToGF b) (doubleToGF c)) $ case truncate h::Int of
@@ -21,7 +22,7 @@ hvrgb hc vv = (\(a,b,c)->Color3 (doubleToGF a) (doubleToGF b) (doubleToGF c)) $ 
 	where
 		v=min vv 1
 		--v=vv --Fast. Good for Newtons, not so much for Complexes
-		--v=(abs . significand) vv --Discontinuities at pretty intervals. Good for Complexes, not so much for Newtons
+		--v=abs $ significand vv --Discontinuities at pretty intervals. Good for Complexes, not so much for Newtons
 		h=3+phase hc*3/pi
 		hf=v*(h-fromIntegral (truncate h::Int))
 
@@ -44,7 +45,7 @@ newton !f !g z xy = hvrgb (x:+y) $ fromIntegral zz/fromIntegral z
 julia (x:+y) zz (xx:+yy) = f zz xx yy
 	where f z zr zi
 		|z==0 = Color3 0 0 0
-		|zr*zr*zi*zi<4 = f (z-1) (zr*zr-zi*zi+x) (2*zr*zi+y)
+		|zr*zr+zi*zi<4 = f (z-1) (zr*zr-zi*zi+x) (2*zr*zi+y)
 		|True = Color3 ((fromIntegral z/fromIntegral zz)^3) ((fromIntegral z/fromIntegral zz)^2) (fromIntegral z/fromIntegral zz)
 mandel ii (x:+y) = f ii x y
 	where f i !zr !zi
