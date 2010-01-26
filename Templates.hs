@@ -6,10 +6,8 @@ import Graphics.Rendering.OpenGL.GL.VertexSpec
 import Data.Complex hiding (magnitude)
 import GHC.Float(double2Float,significand)
 import Unsafe.Coerce(unsafeCoerce)
-doubleToGF :: Double -> GLfloat
-doubleToGF = unsafeCoerce . double2Float
 
-
+doubleToGF = (unsafeCoerce . double2Float) :: Double -> GLfloat
 hvrgb :: Complex Double -> Double -> Color3 GLfloat
 hvrgb hc vv = (\(a,b,c)->Color3 (doubleToGF a) (doubleToGF b) (doubleToGF c)) $ case truncate h::Int of
 	0->(0,v-hf,v)

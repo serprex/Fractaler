@@ -3,12 +3,13 @@
 module Main(main) where
 import Graphics.UI.GLUT
 import Data.Time.Clock.POSIX(getPOSIXTime)
-import Data.IORef
+import Data.IORef(newIORef)
 import Data.Complex hiding (magnitude)
 import Control.Monad
-import Control.Parallel.Strategies
+import Control.Parallel.Strategies(rwhnf,parBuffer)
 import System.IO.Unsafe(unsafePerformIO)
 import System.IO(hFlush,stdout)
+import System.Random(randomRIO,randomIO,randoms,mkStdGen)
 
 import Templates
 
@@ -25,8 +26,18 @@ xynew = unsafePerformIO $ newIORef (0,0)
 {-# NOINLINE xydrt#-}
 xydrt = unsafePerformIO $ newIORef False
 
+rancom :: IO (Complex Double)
+rancom = do
+	r <- randomRIO (0,1)
+	randomRIO (0,1) >>= return . (r:+)
+ranpol :: IO [Complex Double]
+ranpol = do
+		s1 <- randomIO
+		s2 <- randomIO
+		return $ take 6 $ zipWith (:+) (randoms (mkStdGen s1)) (randoms (mkStdGen s2))
 main = do
-	getArgsAndInitialize
+	(_,args) <- getArgsAndInitialize
+	rnd <- return $ args==[] --If say is nothing, might be out of terminal
 	initialWindowSize $= Size 600 600
 	createWindow ""
 	displayCallback $= displayMap
@@ -35,16 +46,20 @@ main = do
 	mouseWheelCallback $= Just detailZoom
 	attachMenu RightButton $ Menu [
 		MenuEntry "Reset" $ xyold$=(-2,-2,4),
-		MenuEntry "Julia>>" $ do
+		MenuEntry "Julia>>" (if rnd then do
+				cm <- rancom
+				meop (julia cm) 100
+			else do
 				cm <- getPrompt "Coordinate"
-				putStrLn cm
-				meop (julia $ readComp cm) 100,
+				meop (julia $ readComp cm) 100),
 		SubMenu "Fantou" $ Menu [
 			MenuEntry "Mandelbrot" $ meop mandel 100,
-			MenuEntry "Multi>>" $ do
-				cm <- getPrompt "Exponent"
-				putStrLn cm
-				meop (multibrot $ readComp cm) 100,
+			MenuEntry "Multi>>" (if rnd then do
+					cm <- rancom
+					meop (multibrot cm) 25
+				else do
+					cm <- getPrompt "Exponent"
+					meop (multibrot $ readComp cm) 25),
 			MenuEntry "Tricorn" $ meop tricorn 100,
 			MenuEntry "Burningship" $ meop burningship 100,
 			MenuEntry "Half I" $ meop nodoub 100,
@@ -52,10 +67,20 @@ main = do
 			MenuEntry "XxY" $ meop yxmandel 100
 		],
 		SubMenu "Newton" $ Menu [
-			MenuEntry "Poly>>" $ do
-				f <- getPrompt "Coefficients"
-				putStrLn f
-				meop (newton (makePolyF $! readPoly f) (makePolyF $! diffPoly $! readPoly f)) 5,
+			MenuEntry "Poly>>" (if rnd then do
+					pl <- ranpol
+					meop (newton (makePolyF pl) (makePolyF $ diffPoly pl)) 5
+				else do
+					f <- getPrompt "Polynomial"
+					meop (newton (makePolyF $ readPoly f) (makePolyF $ diffPoly $ readPoly f)) 5),
+			MenuEntry "GeneralPoly>>" (if rnd then do
+					pl <- ranpol
+					cm <- rancom
+					meop (newton (((*) cm) . (makePolyF pl)) (makePolyF $ diffPoly pl)) 5
+				else do
+					f <- getPrompt "Polynomial"
+					a <- getPrompt "Multiplier"
+					meop (newton (((*) $! readComp a) . (makePolyF $ readPoly f)) (makePolyF $ diffPoly $ readPoly f)) 5),
 			MenuEntry "x5-1" $ meop (newton (\x->x^5-1) (\x->5*x^4)) 5,
 			MenuEntry "x5+3x3-x2-1" $ meop (newton (\x->x^5+3*x^3-x^2-1) (\x->5*x^4+9*x^2+2*x)) 5,
 			MenuEntry "2x3-2x+2" $ meop (newton (\x->2*x^3-2*x+2) (\x->6*x^2-2)) 5,
@@ -68,10 +93,12 @@ main = do
 			MenuEntry "xx-sin x" $ meop (newton (\x->x**x-sin x) (\x->x**x*(1+log x)+cos x)) 5
 		],
 		SubMenu "Complex" $ Menu [
-			MenuEntry "Poly>>" $ do
-				f <- getPrompt "Coefficients"
-				putStrLn f
-				meop (complex $ makePolyF $! readPoly f) 1,
+			MenuEntry "Poly>>" (if rnd then do
+					pl <- ranpol
+					meop (complex $ makePolyF pl) 1
+				else do
+					f <- getPrompt "Coefficients"
+					meop (complex $ makePolyF $! readPoly f) 1),
 			MenuEntry "x" $ meop (complex id) 1,
 			MenuEntry "xx" $ meop (complex (\x->x**x)) 1,
 			MenuEntry "(x2-1)(x-2-i)2/(x2+2+2i)" $ meop (complex (\x->(x^2-1)*(x-(2:+(-1)))^2/(x^2+(2:+2)))) 1,
@@ -81,7 +108,7 @@ main = do
 	mainLoop
 	where
 		meop x y = func $= x >> finc $= y
-		getPrompt x = putStr x >> putStr ": " >> hFlush stdout >> getLine
+		getPrompt x = putStr (x++": ") >> hFlush stdout >> getLine
 
 detailZoom _ dir _ = do
 	fiva $~ (max 0 . (+) dir)
