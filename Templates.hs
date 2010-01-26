@@ -10,17 +10,18 @@ doubleToGF :: Double -> GLfloat
 doubleToGF = unsafeCoerce . double2Float
 
 hvrgb :: Complex Double -> Double -> Color3 GLfloat
-hvrgb !hc !v = (\(a,b,c)->Color3 (doubleToGF a) (doubleToGF b) (doubleToGF c)) $ case truncate h of
-	0->(v,v*hf,0)
-	1->(v*(1-hf),v,0)
-	2->(0,v,v*hf)
-	3->(0,v*(1-hf),v)
-	4->(v*hf,0,v)
-	5->(v,0,v*(1-hf))
+hvrgb hc !vv = (\(a,b,c)->Color3 (doubleToGF a) (doubleToGF b) (doubleToGF c)) $ case truncate h of
+	0->(0,v-hf,v)
+	1->(hf,0,v)
+	2->(v,0,v-hf)
+	3->(v,hf,0)
+	4->(v-hf,v,0)
+	5->(0,v,hf)
 	x->if x>0 then (0.75,0.75,0.75) else (0.25,0.25,0.25)
 	where
+		v=min 1 $ max vv (-1)--if vv>1 then 1 else if vv<(-1) then (-1) else vv
 		h=3+phase hc*3/pi
-		hf=h-(fromIntegral . truncate) h
+		hf=v*(h-(fromIntegral . truncate) h)
 
 magsqr,magnitude :: Complex Double -> Double
 magsqr (a:+b) = a*a+b*b
@@ -30,7 +31,7 @@ complex :: (Complex Double -> Complex Double) -> Int -> Complex Double -> Color3
 newton :: (Complex Double -> Complex Double) -> (Complex Double -> Complex Double) -> Int -> Complex Double -> Color3 GLfloat
 tricorn,burningship,nodoub,yxmandel,dagger,mandel :: Int -> Complex Double -> Color3 GLfloat
 multibrot,julia :: Complex Double -> Int -> Complex Double -> Color3 GLfloat
-complex f z xy = hvrgb (f xy) $ case z of
+complex !f z xy = hvrgb (f xy) $ case z of
 	0->1
 	1->magnitude $ f xy
 	_->logBase (fromIntegral z) $ magnitude (f xy)+1

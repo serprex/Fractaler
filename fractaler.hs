@@ -36,15 +36,15 @@ main = do
 	attachMenu RightButton $ Menu [
 		MenuEntry "Reset" $ xyold$=(-2,-2,4),
 		MenuEntry "Julia" $ do
-			cm <- getPrompt "Coordinate"
-			putStrLn cm
-			meop (julia $ readComp cm) 100,
+				cm <- getPrompt "Coordinate"
+				putStrLn cm
+				meop (julia $! readComp cm) 100,
 		SubMenu "Fantou" $ Menu [
 			MenuEntry "Mandelbrot" $ meop mandel 100,
 			MenuEntry "Multi>>" $ do
-			cm <- getPrompt "Exponent"
-			putStrLn cm
-			meop (multibrot $ readComp cm) 100,
+				cm <- getPrompt "Exponent"
+				putStrLn cm
+				meop (multibrot $! readComp cm) 100,
 			MenuEntry "Tricorn" $ meop tricorn 100,
 			MenuEntry "Burningship" $ meop burningship 100,
 			MenuEntry "Half I" $ meop nodoub 100,
@@ -55,7 +55,7 @@ main = do
 			MenuEntry "Poly>>" $ do
 				f <- getPrompt "Coefficients"
 				putStrLn f
-				meop (newton (makePolyF $ readPoly f) (makePolyF $ diffPoly $ readPoly f)) 5,
+				meop (newton (makePolyF $! readPoly f) (makePolyF $! diffPoly $! readPoly f)) 5,
 			MenuEntry "x5-1" $ meop (newton (\x->x^5-1) (\x->5*x^4)) 5,
 			MenuEntry "x5+3x3-x2-1" $ meop (newton (\x->x^5+3*x^3-x^2-1) (\x->5*x^4+9*x^2+2*x)) 5,
 			MenuEntry "2x3-2x+2" $ meop (newton (\x->2*x^3-2*x+2) (\x->6*x^2-2)) 5,
@@ -71,7 +71,7 @@ main = do
 			MenuEntry "Poly>>" $ do
 				f <- getPrompt "Coefficients"
 				putStrLn f
-				meop (complex $ makePolyF $ readPoly f) 1,
+				meop (complex $ makePolyF $! readPoly f) 1,
 			MenuEntry "x" $ meop (complex id) 1,
 			MenuEntry "xx" $ meop (complex (\x->x**x)) 1,
 			MenuEntry "(x2-1)(x-2-i)2/(x2+2+2i)" $ meop (complex (\x->(x^2-1)*(x-(2:+(-1)))^2/(x^2+(2:+2)))) 1,
@@ -87,7 +87,6 @@ detailZoom _ dir _ = do
 	fiva $~ (max 0 . (+) dir)
 	get fiva >>= (windowTitle$=) . show
 	postRedisplay Nothing
-
 reshaper (Size xx yy) = let x=min xx yy in do
 	windowSize $= Size x x
 	loadIdentity
@@ -147,6 +146,6 @@ readPoly x = readPoly $ break (==',') x
 		readPoly (x,[]) = [readComp x]
 		readPoly (x,_:xs) = readComp x:(readPoly $ break (==',') xs)
 diffPoly [] = []
-diffPoly (_:x) = zipWith (*) x (map (:+0) [1..])
+diffPoly (_:x) = zipWith (*) x $ map (:+0) [1..]
 makePolyF [] y = 0
 makePolyF (xh:x) y = xh+(sum $ zipWith (*) x $ iterate (y*) y)
