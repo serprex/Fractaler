@@ -9,7 +9,7 @@ import Control.Monad
 import Control.Parallel.Strategies(rwhnf,parBuffer)
 import System.IO.Unsafe(unsafePerformIO)
 import System.IO(hFlush,stdout)
-import System.Random(randomRIO,randomIO,randoms,mkStdGen)
+import System.Random(randomRIO,randomIO,randomRs,mkStdGen)
 
 import Templates
 
@@ -34,7 +34,7 @@ ranpol :: IO [Complex Double]
 ranpol = do
 		s1 <- randomIO
 		s2 <- randomIO
-		return $ take 6 $ zipWith (:+) (randoms (mkStdGen s1)) (randoms (mkStdGen s2))
+		return $ take 6 $ zipWith (:+) (randomRs (-4,4) $ mkStdGen s1) (randomRs (-4,4) $ mkStdGen s2)
 main = do
 	(_,args) <- getArgsAndInitialize
 	rnd <- return $ args==[]
@@ -48,11 +48,13 @@ main = do
 		MenuEntry "Reset" $ xyold$=(-2,-2,4),
 		MenuEntry "Julia>>" $ do
 			cm<-if rnd then rancom	else getPrompt "Coordinate" >>= return . readComp
+			windowTitle $= show cm
 			meop (julia cm) 100,
 		SubMenu "Fantou" $ Menu [
 			MenuEntry "Mandelbrot" $ meop mandel 100,
 			MenuEntry "Multi>>" $ do
 				cm<-if rnd then rancom else getPrompt "Exponent" >>= return . readComp
+				windowTitle $= show cm
 				meop (multibrot cm) 25,
 			MenuEntry "Tricorn" $ meop tricorn 100,
 			MenuEntry "Burningship" $ meop burningship 100,
@@ -62,10 +64,12 @@ main = do
 		SubMenu "Newton" $ Menu [
 			MenuEntry "Poly>>" $ do
 				pl<-if rnd then ranpol else getPrompt "Polynomial" >>= return . readPoly
+				windowTitle $= show pl
 				meop (newton (makePolyF pl) (makePolyF $ diffPoly pl)) 5,
 			MenuEntry "GeneralPoly>>" $ do
 				pl<-if rnd then ranpol else getPrompt "Polynomial" >>= return . readPoly
 				cm<-if rnd then rancom else getPrompt "Multiplier" >>= return . readComp
+				windowTitle $= show cm++" "++show pl
 				meop (newton ((*cm) . makePolyF pl) (makePolyF $ diffPoly pl)) 5,
 			MenuEntry "x5-1" $ meop (newton (\x->x^5-1) (\x->5*x^4)) 5,
 			MenuEntry "x5+3x3-x2-1" $ meop (newton (\x->x^5+3*x^3-x^2-1) (\x->5*x^4+9*x^2+2*x)) 5,
@@ -80,6 +84,7 @@ main = do
 		SubMenu "Complex" $ Menu [
 			MenuEntry "Poly>>" $ do
 				pl<-if rnd then ranpol else getPrompt "Coefficients" >>= return . readPoly
+				windowTitle $= show pl
 				meop (complex $ makePolyF pl) 1,
 			MenuEntry "x" $ meop (complex id) 1,
 			MenuEntry "xx" $ meop (complex (\x->x**x)) 1,
