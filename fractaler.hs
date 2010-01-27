@@ -28,8 +28,8 @@ xydrt = unsafePerformIO $ newIORef False
 
 rancom :: IO (Complex Double)
 rancom = do
-	r <- randomRIO (0,1)
-	randomRIO (0,1) >>= return . (r:+)
+	r <- randomRIO (-2,2)
+	randomRIO (-2,2) >>= return . (r:+)
 ranpol :: IO [Complex Double]
 ranpol = do
 		s1 <- randomIO
@@ -37,7 +37,7 @@ ranpol = do
 		return $ take 6 $ zipWith (:+) (randoms (mkStdGen s1)) (randoms (mkStdGen s2))
 main = do
 	(_,args) <- getArgsAndInitialize
-	rnd <- return $ args==[] --If say is nothing, might be out of terminal
+	rnd <- return $ args==[]
 	initialWindowSize $= Size 600 600
 	createWindow ""
 	displayCallback $= displayMap
@@ -46,41 +46,27 @@ main = do
 	mouseWheelCallback $= Just detailZoom
 	attachMenu RightButton $ Menu [
 		MenuEntry "Reset" $ xyold$=(-2,-2,4),
-		MenuEntry "Julia>>" (if rnd then do
-				cm <- rancom
-				meop (julia cm) 100
-			else do
-				cm <- getPrompt "Coordinate"
-				meop (julia $ readComp cm) 100),
+		MenuEntry "Julia>>" $ do
+			cm<-if rnd then rancom	else getPrompt "Coordinate" >>= return . readComp
+			meop (julia cm) 100,
 		SubMenu "Fantou" $ Menu [
 			MenuEntry "Mandelbrot" $ meop mandel 100,
-			MenuEntry "Multi>>" (if rnd then do
-					cm <- rancom
-					meop (multibrot cm) 25
-				else do
-					cm <- getPrompt "Exponent"
-					meop (multibrot $ readComp cm) 25),
+			MenuEntry "Multi>>" $ do
+				cm<-if rnd then rancom else getPrompt "Exponent" >>= return . readComp
+				meop (multibrot cm) 25,
 			MenuEntry "Tricorn" $ meop tricorn 100,
 			MenuEntry "Burningship" $ meop burningship 100,
 			MenuEntry "Half I" $ meop nodoub 100,
 			MenuEntry "Dagger" $ meop dagger 100,
-			MenuEntry "XxY" $ meop yxmandel 100
-		],
+			MenuEntry "XxY" $ meop yxmandel 100],
 		SubMenu "Newton" $ Menu [
-			MenuEntry "Poly>>" (if rnd then do
-					pl <- ranpol
-					meop (newton (makePolyF pl) (makePolyF $ diffPoly pl)) 5
-				else do
-					f <- getPrompt "Polynomial"
-					meop (newton (makePolyF $ readPoly f) (makePolyF $ diffPoly $ readPoly f)) 5),
-			MenuEntry "GeneralPoly>>" (if rnd then do
-					pl <- ranpol
-					cm <- rancom
-					meop (newton (((*) cm) . (makePolyF pl)) (makePolyF $ diffPoly pl)) 5
-				else do
-					f <- getPrompt "Polynomial"
-					a <- getPrompt "Multiplier"
-					meop (newton (((*) $! readComp a) . (makePolyF $ readPoly f)) (makePolyF $ diffPoly $ readPoly f)) 5),
+			MenuEntry "Poly>>" $ do
+				pl<-if rnd then ranpol else getPrompt "Polynomial" >>= return . readPoly
+				meop (newton (makePolyF pl) (makePolyF $ diffPoly pl)) 5,
+			MenuEntry "GeneralPoly>>" $ do
+				pl<-if rnd then ranpol else getPrompt "Polynomial" >>= return . readPoly
+				cm<-if rnd then rancom else getPrompt "Multiplier" >>= return . readComp
+				meop (newton ((*cm) . makePolyF pl) (makePolyF $ diffPoly pl)) 5,
 			MenuEntry "x5-1" $ meop (newton (\x->x^5-1) (\x->5*x^4)) 5,
 			MenuEntry "x5+3x3-x2-1" $ meop (newton (\x->x^5+3*x^3-x^2-1) (\x->5*x^4+9*x^2+2*x)) 5,
 			MenuEntry "2x3-2x+2" $ meop (newton (\x->2*x^3-2*x+2) (\x->6*x^2-2)) 5,
@@ -90,21 +76,16 @@ main = do
 			MenuEntry "xx" $ meop (newton (\x->x**x) (\x->exp(x*log x)*(1+log x))) 5,
 			MenuEntry "xx-1" $ meop (newton (\x->x**x-1) (\x->exp(x*log x)*(1+log x))) 5,
 			MenuEntry "xx+x2-x" $ meop (newton (\x->x**x+x*x-1) (\x->x**x*(1+log x)+x+x)) 5,
-			MenuEntry "xx-sin x" $ meop (newton (\x->x**x-sin x) (\x->x**x*(1+log x)+cos x)) 5
-		],
+			MenuEntry "xx-sin x" $ meop (newton (\x->x**x-sin x) (\x->x**x*(1+log x)+cos x)) 5],
 		SubMenu "Complex" $ Menu [
-			MenuEntry "Poly>>" (if rnd then do
-					pl <- ranpol
-					meop (complex $ makePolyF pl) 1
-				else do
-					f <- getPrompt "Coefficients"
-					meop (complex $ makePolyF $! readPoly f) 1),
+			MenuEntry "Poly>>" $ do
+				pl<-if rnd then ranpol else getPrompt "Coefficients" >>= return . readPoly
+				meop (complex $ makePolyF pl) 1,
 			MenuEntry "x" $ meop (complex id) 1,
 			MenuEntry "xx" $ meop (complex (\x->x**x)) 1,
 			MenuEntry "(x2-1)(x-2-i)2/(x2+2+2i)" $ meop (complex (\x->(x^2-1)*(x-(2:+(-1)))^2/(x^2+(2:+2)))) 1,
 			MenuEntry "sin" $ meop (complex sin) 1,
-			MenuEntry "sin . cos" $ meop (complex (sin . cos)) 1
-		]]
+			MenuEntry "sin . cos" $ meop (complex (sin . cos)) 1]]
 	mainLoop
 	where
 		meop x y = func $= x >> finc $= y
