@@ -1,6 +1,6 @@
 {-# LANGUAGE BangPatterns#-}
 {-# OPTIONS -fexcess-precision -funbox-strict-fields -feager-blackholing -O2#-}
-module Templates(complex,newton,multibrot,julia,tricorn,burningship,nodoub,yxmandel,dagger,mandel) where
+module Templates(complex,newton,multibrot,julia,tricorn,burningship,nodoub,yxmandel,dagger,mandel,magnitude,magsqr) where
 import Graphics.Rendering.OpenGL(GLfloat)
 import Graphics.Rendering.OpenGL.GL.VertexSpec
 import Data.Complex hiding (magnitude)

@@ -14,7 +14,7 @@ import System.Random(randomRIO,randomIO,randomRs,mkStdGen)
 import Templates
 
 {-# NOINLINE func#-}
-func = unsafePerformIO $ newIORef (\x y->Color3 0 0 0)
+func = unsafePerformIO $ newIORef (\_ _->Color3 0 0 0)
 {-# NOINLINE finc#-}
 finc = unsafePerformIO $ newIORef 2
 {-# NOINLINE fiva#-}
@@ -26,15 +26,20 @@ xynew = unsafePerformIO $ newIORef (0,0)
 {-# NOINLINE xydrt#-}
 xydrt = unsafePerformIO $ newIORef False
 
-rancom :: IO (Complex Double)
-rancom = do
-	r <- randomRIO (-2,2)
-	randomRIO (-2,2) >>= return . (r:+)
+rancom :: (Double,Double) -> (Double,Double) -> IO (Complex Double)
+rancom x y = do
+	r <- randomRIO x
+	randomRIO y >>= return . (r:+)
+doUntil :: (a -> Bool) -> IO a -> IO a
+doUntil p x = do
+	r <- x
+	if p r then return r else doUntil p x
 ranpol :: IO [Complex Double]
 ranpol = do
 		s1 <- randomIO
 		s2 <- randomIO
-		return $ take 6 $ zipWith (:+) (randomRs (-4,4) $ mkStdGen s1) (randomRs (-4,4) $ mkStdGen s2)
+		s3 <- randomIO
+		return $ take (head $ randomRs (3,8) $ mkStdGen s3) $ zipWith (:+) (randomRs (-4,4) $ mkStdGen s1) (randomRs (-4,4) $ mkStdGen s2)
 main = do
 	(_,args) <- getArgsAndInitialize
 	rnd <- return $ args==[]
@@ -47,13 +52,21 @@ main = do
 	attachMenu RightButton $ Menu [
 		MenuEntry "Reset" $ xyold$=(-2,-2,4),
 		MenuEntry "Julia>>" $ do
-			cm<-if rnd then rancom else getPrompt "Coordinate" >>= return . readComp
+			cm<-if rnd then rancom (-1.5,1.4) (-1.7,1.7) else getPrompt "Coordinate" >>= return . readComp
+			windowTitle $= show cm
+			meop (julia cm) 100,
+		MenuEntry "JuliaInMan>>" $ do
+			cm<-doUntil ((==Color3 0 0 0) . mandel 2) $ rancom (-2,1.5) (-2,2)
+			windowTitle $= show cm
+			meop (julia cm) 100,
+		MenuEntry "JuliaInManButOut>>" $ do
+			cm<-doUntil (\x->mandel 9 x==Color3 0 0 0&&mandel 999 x/=Color3 0 0 0) $ rancom (-2,1.5) (-2,2)
 			windowTitle $= show cm
 			meop (julia cm) 100,
 		SubMenu "Fantou" $ Menu [
 			MenuEntry "Mandelbrot" $ meop mandel 100,
 			MenuEntry "Multi>>" $ do
-				cm<-if rnd then rancom else getPrompt "Exponent" >>= return . readComp
+				cm<-if rnd then rancom (-1,10) (-0.1,0.1) else getPrompt "Exponent" >>= return . readComp
 				windowTitle $= show cm
 				meop (multibrot cm) 25,
 			MenuEntry "Tricorn" $ meop tricorn 100,
@@ -74,14 +87,29 @@ main = do
 			MenuEntry "x5-1" $ meop (newton (\x->x^5-1) (\x->5*x^4)) 5,
 			MenuEntry "x5+3x3-x2-1" $ meop (newton (\x->x^5+3*x^3-x*x-1) (\x->5*x^4+9*x*x+x+x)) 5,
 			MenuEntry "2x3-2x+2" $ meop (newton (\x->2*x^3-2*x+2) (\x->6*x*x-2)) 5,
-			MenuEntry "(sin x)3-1" $ meop (newton (\x->sin x^3-1) (\x->3*cos x*sin x*sin x)) 5,
+			MenuEntry "sin3-1" $ meop (newton (\x->sin x^3-1) (\x->3*cos x*sin x*sin x)) 5,
 			MenuEntry "asin" $ meop (newton asin (\x->1/sqrt(1-x*x))) 5,
-			MenuEntry "phase" $ meop (newton ((:+0) . phase) (\x->1/(1+x*x))) 5,
-			MenuEntry "1/phase" $ meop (newton ((:+0) . phase) (\x->1+x*x)) 5,
+			SubMenu "phase" $ Menu [
+				MenuEntry "" $ meop (newton ((:+0) . phase) (\x->1/(1+x*x))) 5,
+				MenuEntry "+" $ meop (newton ((:+0) . phase) (\x->1+x+x)) 5,
+				MenuEntry "*" $ meop (newton ((:+0) . phase) (\x->1+x*x)) 5,
+				MenuEntry "^" $ meop (newton ((:+0) . phase) (\x->1+x**x)) 5],
 			MenuEntry "xx" $ meop (newton (\x->x**x) (\x->exp(x*log x)*(1+log x))) 5,
 			MenuEntry "xx-1" $ meop (newton (\x->x**x-1) (\x->exp(x*log x)*(1+log x))) 5,
 			MenuEntry "xx+x2-x" $ meop (newton (\x->x**x+x*x-1) (\x->x**x*(1+log x)+x+x)) 5,
-			MenuEntry "xx-sin x" $ meop (newton (\x->x**x-sin x) (\x->x**x*(1+log x)+cos x)) 5],
+			MenuEntry "xx-sin x" $ meop (newton (\x->x**x-sin x) (\x->x**x*(1+log x)+cos x)) 5,
+			MenuEntry "x.5-x" $ meop (newton (\x->sqrt x-x) (\x->2/sqrt x-1)) 5,
+			SubMenu "Cameo" $ Menu [
+				MenuEntry "Bulbs" $ meop (newton (\x->2*(x-1)*(x-(0:+1))) (\x->x-(1:+(-1)))) 5,
+				MenuEntry "Julia" $ meop (newton (\x->2*(x-1)*(x-(0:+1))) (\x->4)) 5,
+				MenuEntry "Sheath" $ meop (newton (\x->2*(x-1)*(x-(1:+1))) (\x->2*x*x-((-1):+1)*x-1)) 5,
+				MenuEntry "Tricorn" $ meop (newton conjugate id) 5],
+			SubMenu "Bunny" $ Menu [
+				MenuEntry "1" $ meop (newton (\(x:+y)->(x*x):+(x-y)) (\(x:+y)->(x+y*x):+(y+x))) 5,
+				MenuEntry "2" $ meop (newton (\(x:+y)->(x*x-1):+(x-y-1)) (\(x:+y)->(x+y*x+1):+(y+x))) 5,
+				MenuEntry "Loops" $ meop (newton id conjugate) 5,
+				MenuEntry "Spiral" $ meop (newton id (\x->phase x:+magnitude x)) 5,
+				MenuEntry "Hand" $ meop (newton (\(x:+y)->(x*x-1):+(x-y+1)) (\(x:+y)->(x+y*x+1):+(y+x))) 5]],
 		SubMenu "Complex" $ Menu [
 			MenuEntry "Poly>>" $ do
 				pl<-if rnd then ranpol else getPrompt "Coefficients" >>= return . readPoly
@@ -106,13 +134,13 @@ reshaper (Size xx yy) = let x=min xx yy in do
 	loadIdentity
 	viewport $= (Position 0 0,Size x x)
 	ortho 0 (fromIntegral x) (fromIntegral x) 0 0 1
-
 zoomAdjust :: Position -> IO (Double,Double)
 zoomAdjust (Position x y) = do
 	(Size w _) <- get windowSize
 	(a,b,c) <- get xyold
 	return $! (a+(fromIntegral x/fromIntegral w)*c,b+(fromIntegral y/fromIntegral w)*c)
 displayZoom (Char ' ') Down _ _ = func $= (\_ _ -> Color3 0 0 0) >> finc $= 1 >> postRedisplay Nothing
+displayZoom (Char '.') Down _ (Position x y) = windowTitle $= show x++' ':show y
 displayZoom (MouseButton LeftButton) Down _ xy = xydrt $= True >> zoomAdjust xy >>= (xynew$=)
 displayZoom (MouseButton LeftButton) Up _ xy = do
 	xyd <- get xydrt
