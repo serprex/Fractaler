@@ -7,7 +7,7 @@ import Data.Complex hiding (magnitude)
 import GHC.Float(double2Float,significand)
 import Unsafe.Coerce(unsafeCoerce)
 
-doubleToGF = (unsafeCoerce . double2Float) :: Double -> GLfloat
+doubleToGF = unsafeCoerce . double2Float :: Double -> GLfloat
 hvrgb :: Complex Double -> Double -> Color3 GLfloat
 hvrgb hc vv = (\(a,b,c)->Color3 (doubleToGF a) (doubleToGF b) (doubleToGF c)) $ case truncate h::Int of
 	0->(0,v-hf,v)
@@ -19,7 +19,7 @@ hvrgb hc vv = (\(a,b,c)->Color3 (doubleToGF a) (doubleToGF b) (doubleToGF c)) $ 
 	x->if x>0 then (0.75,0.75,0.75) else (0.25,0.25,0.25)
 	where
 		v=min vv 1
-		--v=vv --Fast. Good for Newtons, not so much for Complexes
+		--v=vv --Fast. Good enough for Newtons, not so much for Complexes
 		--v=abs $ significand vv --Discontinuities at pretty intervals. Good for Complexes, not so much for Newtons
 		h=3+phase hc*3/pi
 		hf=v*(h-fromIntegral (truncate h::Int))
@@ -36,10 +36,11 @@ complex !f z xy = hvrgb (f xy) $ case z of
 	0->1
 	1->magnitude $ f xy
 	_->logBase (fromIntegral z) $ magnitude (f xy)+1
-newton !f !g z xy = hvrgb (x:+y) $ fromIntegral zz/fromIntegral z
+newton !f !g z xy = hvrgb x $ fromIntegral zz/fromIntegral z
 	where
+		newraph 0 _ = (0,0)
 		newraph m x = if magsqr(f x)<=1/fromIntegral m then (x,m) else newraph (m-1) (x-f x/g x)
-		(x:+y,zz)=newraph z xy
+		(x,zz)=newraph z xy
 julia (x:+y) zz (xx:+yy) = f zz xx yy
 	where f z zr zi
 		|z==0 = Color3 0 0 0

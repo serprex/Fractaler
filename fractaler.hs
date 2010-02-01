@@ -14,9 +14,9 @@ import System.Random(randomRIO,randomIO,randomRs,mkStdGen)
 import Templates
 
 {-# NOINLINE func#-}
-func = unsafePerformIO $ newIORef (\x y -> Color3 0 0 0)
+func = unsafePerformIO $ newIORef (\x y->Color3 0 0 0)
 {-# NOINLINE finc#-}
-finc = unsafePerformIO $ newIORef 1
+finc = unsafePerformIO $ newIORef 2
 {-# NOINLINE fiva#-}
 fiva = unsafePerformIO $ newIORef 2
 {-# NOINLINE xyold#-}
@@ -47,7 +47,7 @@ main = do
 	attachMenu RightButton $ Menu [
 		MenuEntry "Reset" $ xyold$=(-2,-2,4),
 		MenuEntry "Julia>>" $ do
-			cm<-if rnd then rancom	else getPrompt "Coordinate" >>= return . readComp
+			cm<-if rnd then rancom else getPrompt "Coordinate" >>= return . readComp
 			windowTitle $= show cm
 			meop (julia cm) 100,
 		SubMenu "Fantou" $ Menu [
@@ -68,15 +68,16 @@ main = do
 				meop (newton (makePolyF pl) (makePolyF $ diffPoly pl)) 5,
 			MenuEntry "GeneralPoly>>" $ do
 				pl<-if rnd then ranpol else getPrompt "Polynomial" >>= return . readPoly
-				cm<-if rnd then rancom else getPrompt "Multiplier" >>= return . readComp
-				windowTitle $= show cm++" "++show pl
-				meop (newton ((*cm) . makePolyF pl) (makePolyF $ diffPoly pl)) 5,
+				cm<-if rnd then randomRIO (-2,2) else getPrompt "Multiplier" >>= return . readDoub
+				windowTitle $= show cm++show pl
+				meop (newton ((*(cm:+0)) . makePolyF pl) (makePolyF $ diffPoly pl)) 5,
 			MenuEntry "x5-1" $ meop (newton (\x->x^5-1) (\x->5*x^4)) 5,
-			MenuEntry "x5+3x3-x2-1" $ meop (newton (\x->x^5+3*x^3-x^2-1) (\x->5*x^4+9*x^2+2*x)) 5,
-			MenuEntry "2x3-2x+2" $ meop (newton (\x->2*x^3-2*x+2) (\x->6*x^2-2)) 5,
-			MenuEntry "(sin x)3-1" $ meop (newton (\x->sin x^3-1) (\x->3*cos x*sin x^2)) 5,
+			MenuEntry "x5+3x3-x2-1" $ meop (newton (\x->x^5+3*x^3-x*x-1) (\x->5*x^4+9*x*x+x+x)) 5,
+			MenuEntry "2x3-2x+2" $ meop (newton (\x->2*x^3-2*x+2) (\x->6*x*x-2)) 5,
+			MenuEntry "(sin x)3-1" $ meop (newton (\x->sin x^3-1) (\x->3*cos x*sin x*sin x)) 5,
 			MenuEntry "asin" $ meop (newton asin (\x->1/sqrt(1-x*x))) 5,
 			MenuEntry "phase" $ meop (newton ((:+0) . phase) (\x->1/(1+x*x))) 5,
+			MenuEntry "1/phase" $ meop (newton ((:+0) . phase) (\x->1+x*x)) 5,
 			MenuEntry "xx" $ meop (newton (\x->x**x) (\x->exp(x*log x)*(1+log x))) 5,
 			MenuEntry "xx-1" $ meop (newton (\x->x**x-1) (\x->exp(x*log x)*(1+log x))) 5,
 			MenuEntry "xx+x2-x" $ meop (newton (\x->x**x+x*x-1) (\x->x**x*(1+log x)+x+x)) 5,
@@ -134,26 +135,26 @@ displayZoom _ _ _ _ = xydrt $= False
 pts :: (Double,Double,Double) -> GLshort -> [Complex Double]
 pts (x1,y1,c) wid = [(x1+(c/w)*x):+(y1+(c/w)*y)|x<-[0..w],y<-[0..w]] where w = fromIntegral wid
 displayMap = do
-	w <- get windowSize >>= return . fromIntegral . (\(Size w _)-> w-1)
+	w <- get windowSize >>= return . (\(Size w _)->fromIntegral (w-1))
 	xy <- get xyold
 	t <- getPOSIXTime
 	func <- get func
 	finc <- get finc
 	fiva <- get fiva
 	unsafeRenderPrimitive Points $ zipWithM_ (\v c->vertex v >> color c) [Vertex2 a b|a<-[0..w],b<-[0..w]] $ parBuffer 600 rwhnf $ map (func $ fiva*finc) $ pts xy w
-	getPOSIXTime >>= putStrLn . show . subtract t
+	getPOSIXTime >>= print . subtract t
 	flush
 
+readDoub :: String -> Double
 readComp :: String -> Complex Double
 readPoly :: String -> [Complex Double]
 diffPoly :: [Complex Double] -> [Complex Double]
 makePolyF :: [Complex Double] -> Complex Double -> Complex Double
+readDoub [] = 0
+readDoub (' ':x) = readDoub x
+readDoub ('-':x) = negate $ readDoub x
+readDoub x = if all (flip elem $ "0123456789. ") x && sum(map (fromEnum . (=='.')) x)<2 then read ('0':x) else 0
 readComp x = (\(x,y)->(if x==[] then 0 else readDoub x):+if y==[] then 0 else readDoub $ tail y) $ break (=='+') x
-	where
-		readDoub [] = 0
-		readDoub (' ':x) = readDoub x
-		readDoub ('-':x) = negate $ readDoub x
-		readDoub x = if all (flip elem $ "0123456789. ") x && sum(map (fromEnum . (=='.')) x)<2 then read ('0':x) else 0
 readPoly x = readPoly $ break (==',') x
 	where
 		readPoly (x,[]) = [readComp x]
