@@ -8,6 +8,8 @@ import GHC.Float(double2Float,significand)
 import Unsafe.Coerce(unsafeCoerce)
 
 doubleToGF = unsafeCoerce . double2Float :: Double -> GLfloat
+sqr x=x*x
+cub x=x*x*x
 hvrgb :: Complex Double -> Double -> Color3 GLfloat
 hvrgb hc vv = (\(a,b,c)->Color3 (doubleToGF a) (doubleToGF b) (doubleToGF c)) $ case truncate h::Int of
 	0->(0,v-hf,v)
@@ -41,43 +43,43 @@ newton !f !g z xy = hvrgb x $ fromIntegral zz/fromIntegral z
 		newraph 0 _ = (0,0)
 		newraph m x = if magsqr(f x)<=1/fromIntegral m then (x,m) else newraph (m-1) (x-f x/g x)
 		(x,zz)=newraph z xy
-julia (x:+y) zz (xx:+yy) = f zz xx yy
-	where f z zr zi
+julia x zz xx = f zz xx
+	where f z !xx
 		|z==0 = Color3 0 0 0
-		|zr*zr+zi*zi<4 = f (z-1) (zr*zr-zi*zi+x) (2*zr*zi+y)
-		|True = Color3 ((fromIntegral z/fromIntegral zz)^3) ((fromIntegral z/fromIntegral zz)^2) (fromIntegral z/fromIntegral zz)
-mandel ii (x:+y) = f ii x y
-	where f i !zr !zi
+		|magsqr xx<4 = f (z-1) (sqr xx+x)
+		|True = Color3 (cub $ fromIntegral z/fromIntegral zz) (sqr $ fromIntegral z/fromIntegral zz) (fromIntegral z/fromIntegral zz)
+mandel ii x = f ii x
+	where f i !z
 		|i==0 = Color3 0 0 0
-		|zr*zr+zi*zi<4 = f (i-1) (zr*zr-zi*zi+x) (2*zr*zi+y)
-		|True = Color3 ((fromIntegral i/fromIntegral ii)^3) ((fromIntegral i/fromIntegral ii)^2) (fromIntegral i/fromIntegral ii)
+		|magsqr z<4 = f (i-1) (sqr z+x)
+		|True = Color3 (cub $ fromIntegral i/fromIntegral ii) (sqr $ fromIntegral i/fromIntegral ii) (fromIntegral i/fromIntegral ii)
 dagger zz (x:+y) = f zz x y
 	where f z zr zi
 		|z==0 = Color3 0 0 0
 		|zr*zr*zi*zi<4 = f (z-1) (zr*zr-zi*zi+cos (atan2 y x)) (2*zr*zi+sin (atan2 y x))
-		|True = Color3 ((fromIntegral z/fromIntegral zz)^3) ((fromIntegral z/fromIntegral zz)^2) (fromIntegral z/fromIntegral zz)
+		|True = Color3 (cub $ fromIntegral z/fromIntegral zz) (sqr $ fromIntegral z/fromIntegral zz) (fromIntegral z/fromIntegral zz)
 multibrot ex ii xy = f ii xy
 	where f i z
 		|i==0 = Color3 0 0 0
 		|magsqr z<4 = f (i-1) (z**ex+xy)
-		|True = Color3 ((fromIntegral i/fromIntegral ii)^3) ((fromIntegral i/fromIntegral ii)^2) (fromIntegral i/fromIntegral ii)
+		|True = Color3 (cub $ fromIntegral i/fromIntegral ii) (sqr $ fromIntegral i/fromIntegral ii) (fromIntegral i/fromIntegral ii)
 yxmandel zz (x:+y) = f zz x y
 	where f z !zr !zi
 		|z==0 = Color3 0 0 0
 		|zr*zr+zi*zi<4 = f (z-1) (zr*zr-zi*zi+y*x) (2*zr*zi+y)
-		|True = Color3 ((fromIntegral z/fromIntegral zz)^3) ((fromIntegral z/fromIntegral zz)^2) (fromIntegral z/fromIntegral zz)
+		|True = Color3 (cub $ fromIntegral z/fromIntegral zz) (sqr $ fromIntegral z/fromIntegral zz) (fromIntegral z/fromIntegral zz)
 nodoub zz (x:+y) = f zz x y
 	where f z !zr !zi
 		|z==0 = Color3 0 0 0
 		|zr*zr+zi*zi<4 = f (z-1) (zr*zr-zi*zi+x) (zr*zi+y)
-		|True = Color3 ((fromIntegral z/fromIntegral zz)^3) ((fromIntegral z/fromIntegral zz)^2) (fromIntegral z/fromIntegral zz)
+		|True = Color3 (cub $ fromIntegral z/fromIntegral zz) (sqr $ fromIntegral z/fromIntegral zz) (fromIntegral z/fromIntegral zz)
 tricorn zz (x:+y) = f zz x y
 	where f z !zr !zi
 		|z==0 = Color3 0 0 0
 		|zr*zr+zi*zi<4 = f (z-1) (zi*zi-zr*zr+x) (2*zr*zi+y)
-		|True = Color3 ((fromIntegral z/fromIntegral zz)^3) ((fromIntegral z/fromIntegral zz)^2) (fromIntegral z/fromIntegral zz)
+		|True = Color3 (cub $ fromIntegral z/fromIntegral zz) (sqr $ fromIntegral z/fromIntegral zz) (fromIntegral z/fromIntegral zz)
 burningship zz (x:+y) = f zz x y
 	where f z !zr !zi
 		|z==0 = Color3 0 0 0
 		|zr*zr+zi*zi<4 = f (z-1) (zi*zi-zr*zr+x) (2*abs (zr*zi)+y)
-		|True = Color3 ((fromIntegral z/fromIntegral zz)^3) ((fromIntegral z/fromIntegral zz)^2) (fromIntegral z/fromIntegral zz)
+		|True = Color3 (cub $ fromIntegral z/fromIntegral zz) (sqr $ fromIntegral z/fromIntegral zz) (fromIntegral z/fromIntegral zz)
