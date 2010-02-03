@@ -4,7 +4,7 @@ module Templates(complex,newton,multibrot,julia,tricorn,burningship,nodoub,yxman
 import Graphics.Rendering.OpenGL(GLfloat)
 import Graphics.Rendering.OpenGL.GL.VertexSpec
 import Data.Complex hiding (magnitude)
-import GHC.Float(double2Float,significand)
+import GHC.Float(double2Float,significand,isNaN,isInfinite)
 import Unsafe.Coerce(unsafeCoerce)
 
 doubleToGF = unsafeCoerce . double2Float :: Double -> GLfloat
@@ -18,7 +18,9 @@ hvrgb hc vv = (\(a,b,c)->Color3 (doubleToGF a) (doubleToGF b) (doubleToGF c)) $ 
 	3->(v,hf,0)
 	4->(v-hf,v,0)
 	5->(0,v,hf)
-	x->if x>0 then (0.75,0.75,0.75) else (0.25,0.25,0.25)
+	_->if isNaN h then (0.5,0.5,0.5)
+		else if isInfinite h then (0.75,0.75,0.75)
+		else (0.25,0.25,0.25)
 	where
 		v=min vv 1
 		--v=vv --Fast. Good enough for Newtons, not so much for Complexes
@@ -33,7 +35,8 @@ magnitude = sqrt . magsqr
 complex :: (Complex Double -> Complex Double) -> Int -> Complex Double -> Color3 GLfloat
 newton :: (Complex Double -> Complex Double) -> (Complex Double -> Complex Double) -> Int -> Complex Double -> Color3 GLfloat
 tricorn,burningship,nodoub,yxmandel,dagger,mandel :: Int -> Complex Double -> Color3 GLfloat
-multibrot,julia :: Complex Double -> Int -> Complex Double -> Color3 GLfloat
+julia :: Complex Double -> Int -> Complex Double -> Color3 GLfloat
+multibrot :: Int -> Int -> Complex Double -> Color3 GLfloat
 complex !f z xy = hvrgb (f xy) $ case z of
 	0->1
 	1->magnitude $ f xy
@@ -61,7 +64,7 @@ dagger zz (x:+y) = f zz x y
 multibrot ex ii xy = f ii xy
 	where f i z
 		|i==0 = Color3 0 0 0
-		|magsqr z<4 = f (i-1) (z**ex+xy)
+		|magsqr z<4 = f (i-1) (z^ex+xy)
 		|True = Color3 (cub $ fromIntegral i/fromIntegral ii) (sqr $ fromIntegral i/fromIntegral ii) (fromIntegral i/fromIntegral ii)
 yxmandel zz (x:+y) = f zz x y
 	where f z !zr !zi

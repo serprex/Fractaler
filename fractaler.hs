@@ -66,9 +66,9 @@ main = do
 		SubMenu "Fantou" $ Menu [
 			MenuEntry "Mandelbrot" $ meop mandel 100,
 			MenuEntry "Multi>>" $ do
-				cm<-if rnd then rancom (-1,10) (-0.1,0.1) else getPrompt "Exponent" >>= return . readComp
-				windowTitle $= show cm
-				meop (multibrot cm) 25,
+				ex<-if rnd then randomRIO (3,8) else getPrompt "Exponent" >>= return . (truncate::Double->Int) . readDoub
+				windowTitle $= show ex
+				meop (multibrot ex) 25,
 			MenuEntry "Tricorn" $ meop tricorn 100,
 			MenuEntry "Burningship" $ meop burningship 100,
 			MenuEntry "Half I" $ meop nodoub 100,
@@ -86,14 +86,18 @@ main = do
 				meop (newton ((*(cm:+0)) . makePolyF pl) (makePolyF $ diffPoly pl)) 5,
 			MenuEntry "x5-1" $ meop (newton (\x->x^5-1) (\x->5*x^4)) 5,
 			MenuEntry "x5+3x3-x2-1" $ meop (newton (\x->x^5+3*x^3-x*x-1) (\x->5*x^4+9*x*x+x+x)) 5,
-			MenuEntry "2x3-2x+2" $ meop (newton (\x->2*x^3-2*x+2) (\x->6*x*x-2)) 5,
+			MenuEntry "2x3-2x+2" $ meop (newton (\x->2*x*x*x-2*x+2) (\x->6*x*x-2)) 5,
 			MenuEntry "sin3-1" $ meop (newton (\x->sin x^3-1) (\x->3*cos x*sin x*sin x)) 5,
 			MenuEntry "asin" $ meop (newton asin (\x->1/sqrt(1-x*x))) 5,
 			SubMenu "phase" $ Menu [
 				MenuEntry "" $ meop (newton ((:+0) . phase) (\x->1/(1+x*x))) 5,
 				MenuEntry "+" $ meop (newton ((:+0) . phase) (\x->1+x+x)) 5,
 				MenuEntry "*" $ meop (newton ((:+0) . phase) (\x->1+x*x)) 5,
-				MenuEntry "^" $ meop (newton ((:+0) . phase) (\x->1+x**x)) 5],
+				MenuEntry "^" $ meop (newton ((:+0) . phase) (\x->1+x**x)) 5,
+				MenuEntry "i" $ meop (newton ((0:+) . phase) (\x->1/(1+x*x))) 5,
+				MenuEntry "+i" $ meop (newton ((0:+) . phase) (\x->1+x+x)) 5,
+				MenuEntry "*i" $ meop (newton ((0:+) . phase) (\x->1+x*x)) 5,
+				MenuEntry "^i" $ meop (newton ((0:+) . phase) (\x->1+x**x)) 5],
 			MenuEntry "xx" $ meop (newton (\x->x**x) (\x->exp(x*log x)*(1+log x))) 5,
 			MenuEntry "xx-1" $ meop (newton (\x->x**x-1) (\x->exp(x*log x)*(1+log x))) 5,
 			MenuEntry "xx+x2-x" $ meop (newton (\x->x**x+x*x-1) (\x->x**x*(1+log x)+x+x)) 5,
@@ -169,7 +173,7 @@ displayMap = do
 	func <- get func
 	finc <- get finc
 	fiva <- get fiva
-	unsafeRenderPrimitive Points $ zipWithM_ (\v c->vertex v >> color c) [Vertex2 a b|a<-[0..w],b<-[0..w]] $ parBuffer 600 rwhnf $ map (func $ fiva*finc) $ pts xy w
+	unsafeRenderPrimitive Points $ zipWithM_ (\v c->color c >> vertex v) [Vertex2 a b|a<-[0..w],b<-[0..w]] $ parBuffer 600 rwhnf $ map (func $ fiva*finc) $ pts xy w
 	getPOSIXTime >>= print . subtract t
 	flush
 
