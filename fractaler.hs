@@ -26,20 +26,15 @@ xynew = unsafePerformIO $ newIORef (0,0)
 {-# NOINLINE xydrt#-}
 xydrt = unsafePerformIO $ newIORef False
 
-rancom :: (Double,Double) -> (Double,Double) -> IO (Complex Double)
-rancom x y = do
-	r <- randomRIO x
-	randomRIO y >>= return . (r:+)
 doUntil :: (a -> Bool) -> IO a -> IO a
 doUntil p x = do
 	r <- x
 	if p r then return r else doUntil p x
+rancom :: (Double,Double) -> (Double,Double) -> IO (Complex Double)
 ranpol :: IO [Complex Double]
-ranpol = do
-		s1 <- randomIO
-		s2 <- randomIO
-		s3 <- randomIO
-		return $ take (head $ randomRs (3,8) $ mkStdGen s3) $ zipWith (:+) (randomRs (-4,4) $ mkStdGen s1) (randomRs (-4,4) $ mkStdGen s2)
+rancom x y = randomRIO x >>= return . (:+) >>= (randomRIO y >>=) . (return .)
+ranpol = randomIO >>= return . flip take . zipIt . randomRs (-4,4) . mkStdGen >>= (randomRIO (3,8) >>=) . (return .)
+	where zipIt (x:y:xs) = (x:+y):zipIt xs
 main = do
 	(_,args) <- getArgsAndInitialize
 	rnd <- return $ args==[]
@@ -192,6 +187,7 @@ readPoly x = readPoly $ break (==',') x
 		readPoly (x,[]) = [readComp x]
 		readPoly (x,_:xs) = readComp x:(readPoly $ break (==',') xs)
 diffPoly [] = []
-diffPoly (_:x) = zipWith (*) x $ map (:+0) [1..]
+diffPoly [x] = []
+diffPoly (_:x:xs) = x:(zipWith (\(x:+y) z->(x*z):+(y*z)) xs [2..])
 makePolyF [] y = 0
 makePolyF (xh:x) y = xh+(sum $ zipWith (*) x $ iterate (y*) y)

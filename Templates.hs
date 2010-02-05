@@ -49,12 +49,12 @@ newton !f !g z xy = hvrgb x $ fromIntegral zz/fromIntegral z
 julia x zz xx = f zz xx
 	where f z !xx
 		|z==0 = Color3 0 0 0
-		|magsqr xx<4 = f (z-1) (sqr xx+x)
+		|magsqr xx<4 = f (z-1) (xx*xx+x)
 		|True = Color3 (cub $ fromIntegral z/fromIntegral zz) (sqr $ fromIntegral z/fromIntegral zz) (fromIntegral z/fromIntegral zz)
 mandel ii x = f ii x
 	where f i !z
 		|i==0 = Color3 0 0 0
-		|magsqr z<4 = f (i-1) (sqr z+x)
+		|magsqr z<4 = f (i-1) (z*z+x)
 		|True = Color3 (cub $ fromIntegral i/fromIntegral ii) (sqr $ fromIntegral i/fromIntegral ii) (fromIntegral i/fromIntegral ii)
 dagger zz (x:+y) = f zz x y
 	where f z zr zi
