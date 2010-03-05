@@ -1,6 +1,6 @@
 {-# LANGUAGE BangPatterns#-}
 {-# OPTIONS -fexcess-precision -funbox-strict-fields -feager-blackholing -O2#-}
-module Templates(complex,newton,multibrot,julia,tricorn,burningship,nodoub,yxmandel,dagger,mandel,magnitude,magsqr) where
+module Templates(complex,collatz,newton,multibrot,julia,tricorn,burningship,nodoub,yxmandel,dagger,mandel,magnitude,magsqr) where
 import Graphics.Rendering.OpenGL(GLfloat)
 import Graphics.Rendering.OpenGL.GL.VertexSpec
 import Data.Complex hiding (magnitude)
@@ -34,7 +34,7 @@ magnitude = sqrt . magsqr
 
 complex :: (Complex Double -> Complex Double) -> Int -> Complex Double -> Color3 GLfloat
 newton :: (Complex Double -> Complex Double) -> (Complex Double -> Complex Double) -> Int -> Complex Double -> Color3 GLfloat
-tricorn,burningship,nodoub,yxmandel,dagger,mandel :: Int -> Complex Double -> Color3 GLfloat
+collatz,tricorn,burningship,nodoub,yxmandel,dagger,mandel :: Int -> Complex Double -> Color3 GLfloat
 julia :: Complex Double -> Int -> Complex Double -> Color3 GLfloat
 multibrot :: Int -> Int -> Complex Double -> Color3 GLfloat
 complex !f z xy = hvrgb (f xy) $ case z of
@@ -84,5 +84,10 @@ tricorn zz (x:+y) = f zz x y
 burningship zz (x:+y) = f zz x y
 	where f z !zr !zi
 		|z==0 = Color3 0 0 0
-		|zr*zr+zi*zi<4 = f (z-1) (zi*zi-zr*zr+x) (2*abs (zr*zi)+y)
+		|zr*zr+zi*zi<4 = f (z-1) (zi*zi-zr*zr+x) (2*abs(zr*zi)+y)
 		|True = Color3 (cub $ fromIntegral z/fromIntegral zz) (sqr $ fromIntegral z/fromIntegral zz) (fromIntegral z/fromIntegral zz)
+collatz zz xy = f zz xy
+	where f z !x
+		|z==0 = Color3 0 0 0
+		|magsqr x<1/0 = f (z-1) $ 0.25+x-(cos $ x*pi)*(0.25+x*0.5)
+		|True = Color3 (sqr $ fromIntegral z/fromIntegral zz) (fromIntegral z/fromIntegral zz) (cub(fromIntegral z)/fromIntegral zz)

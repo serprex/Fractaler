@@ -13,17 +13,17 @@ import System.Random(randomRIO,randomIO,randomRs,mkStdGen)
 
 import Templates
 
-{-# NOINLINE func#-}
+{-#NOINLINE func#-}
 func = unsafePerformIO $ newIORef (\_ _->Color3 0 0 0)
-{-# NOINLINE finc#-}
+{-#NOINLINE finc#-}
 finc = unsafePerformIO $ newIORef 2
-{-# NOINLINE fiva#-}
+{-#NOINLINE fiva#-}
 fiva = unsafePerformIO $ newIORef 2
-{-# NOINLINE xyold#-}
+{-#NOINLINE xyold#-}
 xyold = unsafePerformIO $ newIORef (-2,-2,4)
-{-# NOINLINE xynew#-}
+{-#NOINLINE xynew#-}
 xynew = unsafePerformIO $ newIORef (0,0)
-{-# NOINLINE xydrt#-}
+{-#NOINLINE xydrt#-}
 xydrt = unsafePerformIO $ newIORef False
 
 doUntil :: (a -> Bool) -> IO a -> IO a
@@ -68,6 +68,7 @@ main = do
 			MenuEntry "Burningship" $ meop burningship 100,
 			MenuEntry "Half I" $ meop nodoub 100,
 			MenuEntry "Dagger" $ meop dagger 100,
+			MenuEntry "Collatz" $ meop collatz 10,
 			MenuEntry "XxY" $ meop yxmandel 100],
 		SubMenu "Newton" $ Menu [
 			MenuEntry "Poly>>" $ do
@@ -180,7 +181,7 @@ makePolyF :: [Complex Double] -> Complex Double -> Complex Double
 readDoub [] = 0
 readDoub (' ':x) = readDoub x
 readDoub ('-':x) = negate $ readDoub x
-readDoub x = if all (flip elem $ "0123456789. ") x && sum(map (fromEnum . (=='.')) x)<2 then read ('0':x) else 0
+readDoub x = if all (flip elem "0123456789. ") x && sum(map (fromEnum . (=='.')) x)<2 then read ('0':x) else 0
 readComp x = (\(x,y)->(if x==[] then 0 else readDoub x):+if y==[] then 0 else readDoub $ tail y) $ break (=='+') x
 readPoly x = readPoly $ break (==',') x
 	where
@@ -188,6 +189,6 @@ readPoly x = readPoly $ break (==',') x
 		readPoly (x,_:xs) = readComp x:(readPoly $ break (==',') xs)
 diffPoly [] = []
 diffPoly [x] = []
-diffPoly (_:x:xs) = x:(zipWith (\(x:+y) z->(x*z):+(y*z)) xs [2..])
+diffPoly (_:x:xs) = x:zipWith (\(x:+y) z->(x*z):+(y*z)) xs [2..]
 makePolyF [] y = 0
 makePolyF (xh:x) y = xh+(sum $ zipWith (*) x $ iterate (y*) y)
