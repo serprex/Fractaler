@@ -7,7 +7,7 @@ build-type: Simple
 license: PublicDomain
 description: Fractal renderer
 Build-Depends: base, time, random, parallel >= 3, OpenGL, GLUT
-ghc-options: -O2 -threaded -rtsopts -feager-blackholing
+ghc-options: -threaded -rtsopts
 Executable: fractaler
 Main-is: fractaler.hs
 

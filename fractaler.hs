@@ -181,7 +181,7 @@ displayMap = do
 		unsafeRenderPrimitive Points $ zipWithM_ (\v c->color c >> vertex v) ([Vertex2 a b|a<-[0..w],b<-[0..w]]) $ withStrategy (parBuffer 512 rseq) . map (func $ fiva*finc) $ pts xy w
 		getPOSIXTime >>= print . subtract t
 		flush
-	else return ()
+		else return ()
 
 readDoub :: String -> Double
 readComp :: String -> Complex Double

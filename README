@@ -5,7 +5,7 @@ Right click results in the menu. Suggestion is to press space to disable renderi
 Middle click changes to a the Julia Set of the point clicked
 
 Suggested parameters: +RTS -N -qg -g1
-Note that I'm unaware of how to get the Cabal binary to run with rtsopts: ghc --make fractaler.hs -o fractaler -O2 -rtsopts -feager-blackholing
+Note that I'm unaware of how to get the Cabal binary to run with rtsopts: ghc --make fractaler.hs -o fractaler -threaded -rtsopts
 
 Input Syntax
 Complex numbers are specified as real+imag
