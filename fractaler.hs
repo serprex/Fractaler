@@ -4,9 +4,9 @@ module Main(main) where
 import Graphics.UI.GLUT
 import Data.Time.Clock.POSIX(getPOSIXTime)
 import Data.IORef(newIORef)
-import Data.Complex hiding (magnitude)
+import Data.Complex hiding (magnitude) --Too correct. Faster magnitude in Templates
 import Control.Monad
-import Control.Parallel.Strategies(rwhnf,parBuffer)
+import Control.Parallel.Strategies(parBuffer,rseq,withStrategy)
 import System.IO.Unsafe(unsafePerformIO)
 import System.IO(hFlush,stdout)
 import System.Random(randomRIO,randomIO,randomRs,mkStdGen)
@@ -169,7 +169,7 @@ displayMap = do
 	func <- get func
 	finc <- get finc
 	fiva <- get fiva
-	unsafeRenderPrimitive Points $ zipWithM_ (\v c->color c >> vertex v) [Vertex2 a b|a<-[0..w],b<-[0..w]] $ parBuffer 600 rwhnf $ map (func $ fiva*finc) $ pts xy w
+	unsafeRenderPrimitive Points $ zipWithM_ (\v c->color c >> vertex v) ([Vertex2 a b|a<-[0..w],b<-[0..w]]) $ withStrategy (parBuffer 512 rseq) . map (func $ fiva*finc) $ pts xy w
 	getPOSIXTime >>= print . subtract t
 	flush
 
