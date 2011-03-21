@@ -19,6 +19,8 @@ func = unsafePerformIO $ newIORef (\_ _->Color3 0 0 0)
 finc = unsafePerformIO $ newIORef 2
 {-#NOINLINE fiva#-}
 fiva = unsafePerformIO $ newIORef 2
+{-#NOINLINE fdrt#-}
+fdrt = unsafePerformIO $ newIORef True
 {-#NOINLINE xyold#-}
 xyold = unsafePerformIO $ newIORef (-2,-2,4)
 {-#NOINLINE xynew#-}
@@ -35,24 +37,25 @@ ranpol :: IO [Complex Double]
 rancom x y = randomRIO x >>= return . (:+) >>= (randomRIO y >>=) . (return .)
 ranpol = randomIO >>= return . flip take . zipIt . randomRs (-4,4) . mkStdGen >>= (randomRIO (3,8) >>=) . (return .)
 	where zipIt (x:y:xs) = (x:+y):zipIt xs
+winpr x = windowTitle $= show x >> print x
 main = do
 	(_,args) <- getArgsAndInitialize
 	rnd <- return $ args==[]
-	initialWindowSize $= Size 600 600
+	initialWindowSize $= Size 512 512
 	createWindow ""
 	displayCallback $= displayMap
 	keyboardMouseCallback $= Just displayZoom
 	reshapeCallback $= Just reshaper
 	mouseWheelCallback $= Just detailZoom
 	attachMenu RightButton $ Menu [
-		MenuEntry "Reset" $ xyold$=(-2,-2,4),
+		MenuEntry "Reset" $ xyold$=(-2,-2,4) >> fdrt$=True,
 		MenuEntry "Julia>>" $ do
 			cm<-if rnd then rancom (-1.5,1.4) (-1.7,1.7) else getPrompt "Coordinate" >>= return . readComp
-			windowTitle $= show cm
+			winpr cm
 			meop (julia cm) 100,
 		MenuEntry "JuliaInMan>>" $ do
 			cm<-doUntil ((==Color3 0 0 0) . mandel 2) $ rancom (-2,1.5) (-2,2)
-			windowTitle $= show cm
+			winpr cm
 			meop (julia cm) 100,
 		MenuEntry "JuliaInManButOut>>" $ do
 			cm<-doUntil (\x->mandel 9 x==Color3 0 0 0&&mandel 999 x/=Color3 0 0 0) $ rancom (-2,1.5) (-2,2)
@@ -62,7 +65,7 @@ main = do
 			MenuEntry "Mandelbrot" $ meop mandel 100,
 			MenuEntry "Multi>>" $ do
 				ex<-if rnd then randomRIO (3,8) else getPrompt "Exponent" >>= return . (truncate::Double->Int) . readDoub
-				windowTitle $= show ex
+				winpr ex
 				meop (multibrot ex) 25,
 			MenuEntry "Tricorn" $ meop tricorn 100,
 			MenuEntry "Burningship" $ meop burningship 100,
@@ -73,12 +76,12 @@ main = do
 		SubMenu "Newton" $ Menu [
 			MenuEntry "Poly>>" $ do
 				pl<-if rnd then ranpol else getPrompt "Polynomial" >>= return . readPoly
-				windowTitle $= show pl
+				winpr pl
 				meop (newton (makePolyF pl) (makePolyF $ diffPoly pl)) 5,
 			MenuEntry "GeneralPoly>>" $ do
 				pl<-if rnd then ranpol else getPrompt "Polynomial" >>= return . readPoly
 				cm<-if rnd then randomRIO (-2,2) else getPrompt "Multiplier" >>= return . readDoub
-				windowTitle $= show cm++show pl
+				winpr $ show cm++show pl
 				meop (newton ((*(cm:+0)) . makePolyF pl) (makePolyF $ diffPoly pl)) 5,
 			MenuEntry "x5-1" $ meop (newton (\x->x^5-1) (\x->5*x^4)) 5,
 			MenuEntry "x5+3x3-x2-1" $ meop (newton (\x->x^5+3*x^3-x*x-1) (\x->5*x^4+9*x*x+x+x)) 5,
@@ -113,7 +116,7 @@ main = do
 		SubMenu "Complex" $ Menu [
 			MenuEntry "Poly>>" $ do
 				pl<-if rnd then ranpol else getPrompt "Coefficients" >>= return . readPoly
-				windowTitle $= show pl
+				winpr pl
 				meop (complex $ makePolyF pl) 1,
 			MenuEntry "x" $ meop (complex id) 1,
 			MenuEntry "xx" $ meop (complex (\x->x**x)) 1,
@@ -122,12 +125,12 @@ main = do
 			MenuEntry "sin . cos" $ meop (complex (sin . cos)) 1]]
 	mainLoop
 	where
-		meop x y = func $= x >> finc $= y
+		meop x y = func $= x >> finc $= y >> fdrt $= True
 		getPrompt x = putStr (x++": ") >> hFlush stdout >> getLine
-
 detailZoom _ dir _ = do
 	fiva $~ (max 0 . (+) dir)
-	get fiva >>= (windowTitle$=) . show
+	get fiva >>= winpr
+	fdrt $= True
 	postRedisplay Nothing
 reshaper (Size xx yy) = let x=min xx yy in do
 	windowSize $= Size x x
@@ -139,8 +142,9 @@ zoomAdjust (Position x y) = do
 	(Size w _) <- get windowSize
 	(a,b,c) <- get xyold
 	return $! (a+(fromIntegral x/fromIntegral w)*c,b+(fromIntegral y/fromIntegral w)*c)
-displayZoom (Char ' ') Down _ _ = func $= (\_ _ -> Color3 0 0 0) >> finc $= 1 >> postRedisplay Nothing
-displayZoom (Char '.') Down _ (Position x y) = windowTitle $= show x++' ':show y
+displayZoom (Char '.') Down _ (Position x y) = winpr $ show x++' ':show y
+displayZoom (SpecialKey KeyUp) Down _ p = detailZoom 0 1 p
+displayZoom (SpecialKey KeyDown) Down _ p = detailZoom 0 (-1) p
 displayZoom (MouseButton LeftButton) Down _ xy = xydrt $= True >> zoomAdjust xy >>= (xynew$=)
 displayZoom (MouseButton LeftButton) Up _ xy = do
 	xyd <- get xydrt
@@ -151,27 +155,33 @@ displayZoom (MouseButton LeftButton) Up _ xy = do
 		xyn <- if x==xn && y==yn then get xyold >>= (\(_,_,c)->return (x-c,y-c,c*2))
 			else return (min x xn,min y yn,max (abs $ x-xn) (abs $ y-yn))
 		xyold $= xyn
-		windowTitle $= show xyn
+		winpr xyn
+		fdrt $= True
 		postRedisplay Nothing
 displayZoom (MouseButton MiddleButton) Down _ xy = do
 	(x,y) <- zoomAdjust xy
 	func $= julia (x:+y)
 	finc $= 100
+	fdrt $= True
 	postRedisplay Nothing
 displayZoom _ _ _ _ = xydrt $= False
 
 pts :: (Double,Double,Double) -> GLshort -> [Complex Double]
 pts (x1,y1,c) wid = [(x1+(c/w)*x):+(y1+(c/w)*y)|x<-[0..w],y<-[0..w]] where w = fromIntegral wid
 displayMap = do
-	w <- get windowSize >>= return . (\(Size w _)->fromIntegral (w-1))
-	xy <- get xyold
-	t <- getPOSIXTime
-	func <- get func
-	finc <- get finc
-	fiva <- get fiva
-	unsafeRenderPrimitive Points $ zipWithM_ (\v c->color c >> vertex v) ([Vertex2 a b|a<-[0..w],b<-[0..w]]) $ withStrategy (parBuffer 512 rseq) . map (func $ fiva*finc) $ pts xy w
-	getPOSIXTime >>= print . subtract t
-	flush
+	fdr <- get fdrt
+	if fdr then do
+		fdrt $= False
+		w <- get windowSize >>= return . (\(Size w _)->fromIntegral (w-1))
+		xy <- get xyold
+		func <- get func
+		finc <- get finc
+		fiva <- get fiva
+		t <- getPOSIXTime
+		unsafeRenderPrimitive Points $ zipWithM_ (\v c->color c >> vertex v) ([Vertex2 a b|a<-[0..w],b<-[0..w]]) $ withStrategy (parBuffer 512 rseq) . map (func $ fiva*finc) $ pts xy w
+		getPOSIXTime >>= print . subtract t
+		flush
+	else return ()
 
 readDoub :: String -> Double
 readComp :: String -> Complex Double
