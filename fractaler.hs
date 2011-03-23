@@ -10,9 +10,7 @@ import Control.Parallel.Strategies(parBuffer,rseq,withStrategy)
 import System.IO.Unsafe(unsafePerformIO)
 import System.IO(hFlush,stdout)
 import System.Random(randomRIO,randomIO,randomRs,mkStdGen)
-
 import Templates
-
 {-#NOINLINE func#-}
 func = unsafePerformIO $ newIORef (\_ _->Color3 0 0 0)
 {-#NOINLINE finc#-}
@@ -59,7 +57,7 @@ main = do
 			meop (julia cm) 100,
 		MenuEntry "JuliaInManButOut>>" $ do
 			cm<-doUntil (\x->mandel 9 x==Color3 0 0 0&&mandel 999 x/=Color3 0 0 0) $ rancom (-2,1.5) (-2,2)
-			windowTitle $= show cm
+			winpr cm
 			meop (julia cm) 100,
 		SubMenu "Fantou" $ Menu [
 			MenuEntry "Mandelbrot" $ meop mandel 100,
@@ -113,6 +111,11 @@ main = do
 				MenuEntry "Loops" $ meop (newton id conjugate) 5,
 				MenuEntry "Spiral" $ meop (newton id (\x->phase x:+magnitude x)) 5,
 				MenuEntry "Hand" $ meop (newton (\(x:+y)->(x*x-1):+(x-y+1)) (\(x:+y)->(x+y*x+1):+(y+x))) 5]],
+		SubMenu "Discrete" $ Menu [
+			MenuEntry "Sierpinski's Carpet" $ meop sicarp 1,
+			MenuEntry "Sierpinski's Tablecloth" $ meop sitabl 1,
+			MenuEntry "Cantor Dust" $ meop cantor 1,
+			MenuEntry "Cantor Ecstasy" $ meop cantox 1],
 		SubMenu "Complex" $ Menu [
 			MenuEntry "Poly>>" $ do
 				pl<-if rnd then ranpol else getPrompt "Coefficients" >>= return . readPoly
