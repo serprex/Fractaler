@@ -12,10 +12,7 @@ import System.IO(hFlush,stdout)
 import System.Random(randomRIO,randomIO,randomRs,mkStdGen)
 import System.Environment(getArgs)
 import Unsafe.Coerce(unsafeCoerce)
-import Data.Bits
-import Data.Int
 import Templates
-
 doUntil :: (a -> Bool) -> IO a -> IO a
 doUntil p x = do
 	r <- x
@@ -26,6 +23,9 @@ rancom x y = randomRIO x >>= return . (:+) >>= (randomRIO y >>=) . (return .)
 ranpol = randomIO >>= return . flip take . zipIt . randomRs (-4,4) . mkStdGen >>= (randomRIO (3,8) >>=) . (return .)
 	where zipIt (x:y:xs) = (x:+y):zipIt xs
 winpr x = windowTitle $= show x >> print x
+getmouseflip = do
+	w <- get windowSize >>= \(Size w _) -> return ((unsafeCoerce :: GLsizei -> GLint) w)
+	get mousePos >>= \(Position x y) -> return (Position x (w-y))
 main = do
 	initialize
 	disableSpecial AutoPollEvent
@@ -145,6 +145,7 @@ main' xydrt xyold xynew fdrt fiva finc func quit menu = do
 			b <- getMouseButton ButtonRight
 			when (b == Press) $ preservingMatrix $ do
 				color $ Color3 (1 :: GLfloat) 0 0
+				translate $ Vector3 0 (-16) (0 :: GLfloat)
 				evalMenu menu 0 0
 			swapBuffers
 			waitEvents
@@ -158,7 +159,7 @@ reshaper (Size xx yy) = let x=min xx yy in do
 	windowSize $= Size x x
 	viewport $= (Position 0 0,Size x x)
 	loadIdentity
-	ortho 0 (fromIntegral x) (fromIntegral x) 0 0 1
+	ortho 0 (fromIntegral x) 0 (fromIntegral x) 0 1
 zoomAdjust :: IORef (Double, Double, Double) -> Position -> IO (Double,Double)
 zoomAdjust xyold (Position x y) = do
 	(Size w _) <- get windowSize
@@ -172,10 +173,10 @@ keyZoom fdrt fiva _ (SpecialKey DOWN) Press = detailZoom fdrt fiva (-1)
 keyZoom _ _ quit (SpecialKey ESC) Press = writeIORef quit True
 keyZoom _ _ _ _ _ = do return ()
 displayZoom xydrt xyold xynew _ _ _ _ ButtonLeft Press = do
-	xy <- get mousePos
+	xy <- getmouseflip
 	xydrt $= True >> zoomAdjust xyold xy >>= (xynew$=)
 displayZoom xydrt xyold xynew fdrt _ _ _ ButtonLeft Release = do
-	xy <- get mousePos
+	xy <- getmouseflip
 	xyd <- get xydrt
 	when xyd $ do
 		xydrt $= False
@@ -188,16 +189,16 @@ displayZoom xydrt xyold xynew fdrt _ _ _ ButtonLeft Release = do
 		fdrt $= True
 		swapBuffers
 displayZoom _ xyold _ fdrt finc func _ ButtonMiddle Press = do
-	xy <- get mousePos
+	xy <- getmouseflip
 	(x,y) <- zoomAdjust xyold xy
 	func $= julia (x:+y)
 	finc $= 100
 	fdrt $= True
 	swapBuffers
 displayZoom _ _ _ fdrt _ _ menu ButtonRight Release = do
-	(Size w _) <- get windowSize
+	w <- get windowSize >>= \(Size w _) -> return ((unsafeCoerce :: GLsizei -> GLint) w)
 	(Position x y) <- get mousePos
-	mid <- return $ fromIntegral $ div (y+(div x (div ((unsafeCoerce :: GLsizei -> GLint) w) 8))) 16
+	mid <- return $ fromIntegral $ (div (w-y) 16)+(if x<128 then 0 else (div w 16)+1)
 	print mid
 	when (mid < length menu) $ do
 		snd $ menu !! mid
