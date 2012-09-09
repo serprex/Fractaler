@@ -130,7 +130,7 @@ main' xydrt xyold xynew fdrt fiva finc func quit menu = do
 	keyCallback $= keyZoom fdrt fiva quit
 	windowSizeCallback $= reshaper
 	mouseButtonCallback $= displayZoom xydrt xyold xynew fdrt finc func menu
-	mouseWheelCallback $= detailZoom fdrt fiva
+	mouseWheelCallback $= \dir -> detailZoom fdrt fiva (if dir>16777216 || dir<0 then (-1) else 1)
 	windowCloseCallback $= (writeIORef quit True >> return True)
 	mainLoop quit menu
 	where
