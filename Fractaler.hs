@@ -213,10 +213,10 @@ displayMap xyold fdrt fiva finc func = do
 		w <- get windowSize >>= return . (\(Size w _)->fromIntegral (w-1))
 		xy <- get xyold
 		func <- get func
-		finc <- get finc
-		fiva <- get fiva
+		inc <- get finc
+		vc <- get fiva >>= \iva -> return $ iva*inc
 		t <- getPOSIXTime
-		unsafeRenderPrimitive Points $ zipWithM_ (\v c->color c >> vertex v) [Vertex2 a b|a<-[0..w],b<-[0..w]] $ withStrategy (parBuffer 512 rseq) . map (func $ fiva*finc) $ pts xy w
+		unsafeRenderPrimitive Points $ zipWithM_ (\v c->color c >> vertex v) [Vertex2 a b|a<-[0..w],b<-[0..w]] $ withStrategy (parBuffer 512 rseq) . map (func vc) $ pts xy w
 		getPOSIXTime >>= print . subtract t
 		flush
 		else return ()
