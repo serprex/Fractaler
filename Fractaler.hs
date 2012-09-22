@@ -30,7 +30,6 @@ main = do
 	initialize
 	disableSpecial AutoPollEvent
 	openWindow (Size 512 512) [DisplayAlphaBits 8] Window
-	blend $= Enabled
 	blendFunc $= (SrcAlpha, OneMinusSrcAlpha)
 	args <- getArgs
 	rnd <- return $ null args
@@ -126,12 +125,11 @@ main = do
 	where
 		getPrompt x = putStr (x++": ") >> hFlush stdout >> getLine
 main' xydrt xyold xynew fdrt fiva finc func quit menu = do
-	windowRefreshCallback $= displayMap xyold fdrt fiva finc func
 	keyCallback $= keyZoom fdrt fiva quit
 	windowSizeCallback $= reshaper
 	mouseButtonCallback $= displayZoom xydrt xyold xynew fdrt finc func menu
 	mouseWheelCallback $= \dir -> detailZoom fdrt fiva (if dir>16777216 || dir<0 then (-1) else 1)
-	windowCloseCallback $= (writeIORef quit True >> return True)
+	windowCloseCallback $= (quit $= True >> return True)
 	mainLoop quit menu
 	where
 		evalMenu :: [(String, IO ())] -> GLfloat -> GLfloat -> IO ()
@@ -141,16 +139,16 @@ main' xydrt xyold xynew fdrt fiva finc func quit menu = do
 			diffy <- return $ if y>=fromIntegral w then -y else 16
 			(translate $ Vector3 diffx diffy (0 :: GLfloat)) >> renderString Fixed8x16 a >> (if null as then return () else evalMenu as (x+diffx) (y+diffy))
 		mainLoop quit menu = do
-			displayMap xyold fdrt fiva finc func
-			b <- getMouseButton ButtonRight
-			when (b == Press) $ preservingMatrix $ do
-				color $ Color3 (1 :: GLfloat) 0 0
-				translate $ Vector3 0 (-16) (0 :: GLfloat)
+			get fdrt >>= (flip when $ do
+				fdrt $= False
+				displayMap xyold fiva finc func)
+			getMouseButton ButtonRight >>= (flip (when.(Press==)) $ preservingMatrix $ do
+				color $ Color3 (1::GLfloat) 0 0
+				translate $ Vector3 0 (-16) (0::GLfloat)
+				blend $= Enabled
 				evalMenu menu 0 0
-			swapBuffers
-			waitEvents
-			q <- readIORef quit
-			unless q $ mainLoop quit menu
+				blend $= Disabled)
+			swapBuffers >> waitEvents >> get quit >>= (flip unless $ mainLoop quit menu)
 detailZoom fdrt fiva dir = do
 	fiva $~ (max 0 . (+) dir)
 	get fiva >>= winpr
@@ -170,7 +168,7 @@ keyZoom _ _ _ (CharKey '.') Press = do
 	winpr $ show x++' ':show y
 keyZoom fdrt fiva _ (SpecialKey UP) Press = detailZoom fdrt fiva 1
 keyZoom fdrt fiva _ (SpecialKey DOWN) Press = detailZoom fdrt fiva (-1)
-keyZoom _ _ quit (SpecialKey ESC) Press = writeIORef quit True
+keyZoom _ _ quit (SpecialKey ESC) Press = quit $= True
 keyZoom _ _ _ _ _ = do return ()
 displayZoom xydrt xyold xynew _ _ _ _ ButtonLeft Press = do
 	xy <- getmouseflip
@@ -187,14 +185,12 @@ displayZoom xydrt xyold xynew fdrt _ _ _ ButtonLeft Release = do
 		xyold $= xyn
 		winpr xyn
 		fdrt $= True
-		swapBuffers
 displayZoom _ xyold _ fdrt finc func _ ButtonMiddle Press = do
 	xy <- getmouseflip
 	(x,y) <- zoomAdjust xyold xy
 	func $= julia (x:+y)
 	finc $= 100
 	fdrt $= True
-	swapBuffers
 displayZoom _ _ _ fdrt _ _ menu ButtonRight Release = do
 	w <- get windowSize >>= \(Size w _) -> return ((unsafeCoerce :: GLsizei -> GLint) w)
 	(Position x y) <- get mousePos
@@ -206,20 +202,15 @@ displayZoom _ _ _ fdrt _ _ menu ButtonRight Release = do
 displayZoom xydrt _ _ _ _ _ _ _ _ = xydrt $= False
 pts :: (Double,Double,Double) -> GLshort -> [Complex Double]
 pts (x1,y1,c) wid = [(x1+(c/w)*x):+(y1+(c/w)*y)|x<-[0..w],y<-[0..w]] where w = fromIntegral wid
-displayMap xyold fdrt fiva finc func = do
-	fdr <- get fdrt
-	if fdr then do
-		fdrt $= False
-		w <- get windowSize >>= return . (\(Size w _)->fromIntegral (w-1))
-		xy <- get xyold
-		func <- get func
-		inc <- get finc
-		vc <- get fiva >>= \iva -> return $ iva*inc
-		t <- getPOSIXTime
-		unsafeRenderPrimitive Points $ zipWithM_ (\v c->color c >> vertex v) [Vertex2 a b|a<-[0..w],b<-[0..w]] $ withStrategy (parBuffer 512 rseq) . map (func vc) $ pts xy w
-		getPOSIXTime >>= print . subtract t
-		flush
-		else return ()
+displayMap xyold fiva finc func = do
+	w <- get windowSize >>= return . (\(Size w _)->fromIntegral (w-1))
+	xy <- get xyold
+	func <- get func
+	inc <- get finc
+	vc <- get fiva >>= \iva -> return $ iva*inc
+	t <- getPOSIXTime
+	unsafeRenderPrimitive Points $ zipWithM_ (\v c->color c >> vertex v) [Vertex2 a b|a<-[0..w],b<-[0..w]] $ withStrategy (parBuffer 512 rseq) . map (func vc) $ pts xy w
+	getPOSIXTime >>= print . subtract t
 readDoub :: String -> Double
 readComp :: String -> Complex Double
 readPoly :: String -> [Complex Double]
