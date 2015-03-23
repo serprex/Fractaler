@@ -7,8 +7,8 @@ import Data.Complex hiding (magnitude)
 import GHC.Float(double2Float,int2Double,double2Int,significand,isNaN,isInfinite)
 import Unsafe.Coerce(unsafeCoerce)
 doubleToGF = unsafeCoerce . double2Float :: Double -> GLfloat
-sqr x=x*x
-cub x=x*x*x
+sqr !x=x*x
+cub !x=x*x*x
 magsqr,magnitude :: Complex Double -> Double
 magsqr (a:+b) = a*a+b*b
 magnitude = sqrt . magsqr

@@ -1,9 +1,10 @@
 {-# LANGUAGE BangPatterns#-}
 {-# OPTIONS -fexcess-precision -funbox-strict-fields -feager-blackholing -O2#-}
 module Main(main) where
+import Prelude hiding (init)
+import Graphics.Rendering.OpenGL hiding (Front)
+import Graphics.Rendering.FTGL
 import Graphics.UI.GLFW
-import Graphics.Rendering.OpenGL
-import Data.Time.Clock.POSIX(getPOSIXTime)
 import Data.IORef
 import Data.Complex hiding (magnitude) --Too correct. Faster magnitude in Templates
 import Control.Monad
@@ -11,8 +12,8 @@ import Control.Parallel.Strategies(parBuffer,rseq,withStrategy)
 import System.IO(hFlush,stdout)
 import System.Random(randomRIO,randomIO,randomRs,mkStdGen)
 import System.Environment(getArgs)
-import Unsafe.Coerce(unsafeCoerce)
 import Templates
+
 doUntil :: (a -> Bool) -> IO a -> IO a
 doUntil p x = do
 	r <- x
@@ -22,15 +23,28 @@ ranpol :: IO [Complex Double]
 rancom x y = randomRIO x >>= return . (:+) >>= (randomRIO y >>=) . (return .)
 ranpol = randomIO >>= return . flip take . zipIt . randomRs (-4,4) . mkStdGen >>= (randomRIO (3,8) >>=) . (return .)
 	where zipIt (x:y:xs) = (x:+y):zipIt xs
-winpr x = windowTitle $= show x >> print x
-getmouseflip = do
-	w <- get windowSize >>= \(Size w _) -> return ((unsafeCoerce :: GLsizei -> GLint) w)
-	get mousePos >>= \(Position x y) -> return (Position x (w-y))
+
+winpr :: Show a => Window -> a -> IO ()
+winpr wnd x = setWindowTitle wnd (show x) >> print x
+
+getwinwid :: Window -> IO Double
+getwinwid wnd = do
+	(w,_) <- getWindowSize wnd
+	return $ fromIntegral w
+
+getmouseflip :: Window -> IO (Double,Double)
+getmouseflip wnd = do
+	w <- getwinwid wnd
+	getCursorPos wnd >>= \(x,y) -> return (x,(w-y))
+
 main = do
-	initialize
-	disableSpecial AutoPollEvent
-	openWindow (Size 512 512) [DisplayAlphaBits 8] Window
-	blendFunc $= (SrcAlpha, OneMinusSrcAlpha)
+	setErrorCallback $ Just (\e s -> putStrLn $ unwords [show e, show s])
+	init
+	(Just wnd) <- createWindow 512 512 "Fractaler" Nothing Nothing
+	makeContextCurrent (Just wnd)
+	font <- createTextureFont "DejaVuSansMono.ttf"
+	setFontFaceSize font 16 72
+	reshaper wnd 512 512
 	args <- getArgs
 	rnd <- return $ null args
 	xydrt <- newIORef False
@@ -40,29 +54,28 @@ main = do
 	fiva <- newIORef 2
 	finc <- newIORef 25
 	func <- newIORef mandel
-	quit <- newIORef False
-	let meop x y = func $= x >> finc $= y in main' xydrt xyold xynew fdrt fiva finc func quit [
+	let meop x y = func $= x >> finc $= y in main' wnd xydrt xyold xynew fdrt fiva finc func font [
 		("Reset", xyold$=(-2,-2,4)),
 		("Julia",
 		do
 			cm<-if rnd then rancom (-1.5,1.4) (-1.7,1.7) else getPrompt "Coordinate" >>= return . readComp
-			winpr cm
+			winpr wnd cm
 			meop (julia cm) 100),
 		("JuliaInMan",
 		do
 			cm<-doUntil ((==Color3 0 0 0) . mandel 2) $ rancom (-2,1.5) (-2,2)
-			winpr cm
+			winpr wnd cm
 			meop (julia cm) 100),
 		("JuliaInManButOut",
 		do
 			cm<-doUntil (\x->mandel 9 x==Color3 0 0 0&&mandel 999 x/=Color3 0 0 0) $ rancom (-2,1.5) (-2,2)
-			winpr cm
+			winpr wnd cm
 			meop (julia cm) 100),
 		("Mandelbrot",meop mandel 100),
 		("Multi",
 		do
 			ex<-if rnd then randomRIO (3,8) else getPrompt "Exponent" >>= return . (truncate::Double->Int) . readDoub
-			winpr ex
+			winpr wnd ex
 			meop (multibrot ex) 25),
 		("Tricorn",meop tricorn 100),
 		("Burningship",meop burningship 100),
@@ -73,13 +86,13 @@ main = do
 		("Poly",
 		do
 			pl<-if rnd then ranpol else getPrompt "Coefficients" >>= return . readPoly
-			winpr pl
+			winpr wnd pl
 			meop (newton (makePolyF pl) (makePolyF $ diffPoly pl)) 5),
 		("GeneralPoly",
 		do
 			pl<-if rnd then ranpol else getPrompt "Coefficients" >>= return . readPoly
 			cm<-if rnd then randomRIO (-2,2) else getPrompt "Multiplier" >>= return . readDoub
-			winpr $ show cm++show pl
+			winpr wnd $ show cm++show pl
 			meop (newton ((*(cm:+0)) . makePolyF pl) (makePolyF $ diffPoly pl)) 5),
 		("x5-1",meop (newton (\x->x^5-1) (\x->5*x^4)) 5),
 		("x5+3x3-x2-1",meop (newton (\x->x^5+3*x^3-x*x-1) (\x->5*x^4+9*x*x+x+x)) 5),
@@ -115,7 +128,7 @@ main = do
 		("Poly",
 		do
 			pl<-if rnd then ranpol else getPrompt "Coefficients" >>= return . readPoly
-			winpr pl
+			winpr wnd pl
 			meop (complex $ makePolyF pl) 1),
 		("x",meop (complex id) 1),
 		("xx",meop (complex (\x->x**x)) 1),
@@ -124,93 +137,112 @@ main = do
 		("sin . cos",meop (complex (sin . cos)) 1)]
 	where
 		getPrompt x = putStr (x++": ") >> hFlush stdout >> getLine
-main' xydrt xyold xynew fdrt fiva finc func quit menu = do
-	keyCallback $= keyZoom fdrt fiva quit
-	windowSizeCallback $= reshaper
-	mouseButtonCallback $= displayZoom xydrt xyold xynew fdrt finc func menu
-	mouseWheelCallback $= \dir -> detailZoom fdrt fiva (if dir>16777216 || dir<0 then (-1) else 1)
-	windowCloseCallback $= (quit $= True >> return True)
-	mainLoop quit menu
+
+main' :: Window -> IORef Bool -> IORef (Double,Double,Double) -> IORef (Double,Double) -> IORef Bool -> IORef Int -> IORef Int -> IORef (Int -> Complex Double -> Color3 GLfloat) -> Font -> [(String, IO ())] -> IO ()
+main' wnd xydrt xyold xynew fdrt fiva finc func font menu = do
+	setKeyCallback wnd $ Just $ keyZoom fdrt fiva
+	setWindowSizeCallback wnd $ Just $ reshaper
+	setMouseButtonCallback wnd $ Just $ displayZoom xydrt xyold xynew fdrt finc func menu
+	setScrollCallback wnd $ Just $ \wnd dx dy -> detailZoom fdrt fiva (if dy<0 then (-1) else 1) wnd
+	setWindowCloseCallback wnd $ Just $ (flip setWindowShouldClose) True
+	mainLoop
 	where
-		evalMenu :: [(String, IO ())] -> GLfloat -> GLfloat -> IO ()
+		evalMenu :: [(String, IO ())] -> Int -> Int -> IO ()
 		evalMenu ((a,f):as) x y = do
-			(Size w _) <- get windowSize
-			diffx <- return $ if y>=fromIntegral w then 128 else 0
-			diffy <- return $ if y>=fromIntegral w then -y else 16
-			(translate $ Vector3 diffx diffy (0 :: GLfloat)) >> renderString Fixed8x16 a >> (if null as then return () else evalMenu as (x+diffx) (y+diffy))
-		mainLoop quit menu = do
+			w <- getwinwid wnd
+			diffx <- return $ if y>=(truncate w) then 128 else 0
+			diffy <- return $ if y>=(truncate w) then -y else 16
+			translate $ Vector3 (fromIntegral diffx) (fromIntegral diffy) (0::GLfloat)
+			renderFont font a Front
+			(if null as then return () else evalMenu as (x+diffx) (y+diffy))
+		mainLoop :: IO ()
+		mainLoop = do
 			get fdrt >>= (flip when $ do
 				fdrt $= False
-				displayMap xyold fiva finc func)
-			getMouseButton ButtonRight >>= (flip (when.(Press==)) $ preservingMatrix $ do
+				displayMap xyold fiva finc func wnd)
+			getMouseButton wnd MouseButton'2 >>= (flip (when.(MouseButtonState'Pressed==)) $ preservingMatrix $ do
+				loadIdentity
 				color $ Color3 (1::GLfloat) 0 0
-				translate $ Vector3 0 (-16) (0::GLfloat)
-				blend $= Enabled
-				evalMenu menu 0 0
-				blend $= Disabled)
-			swapBuffers >> waitEvents >> get quit >>= (flip unless $ mainLoop quit menu)
-detailZoom fdrt fiva dir = do
+				ortho 0 511 0 511 0 1
+				translate $ Vector3 0 (-16::GLfloat) 0
+				evalMenu menu 0 0)
+			swapBuffers wnd
+			waitEvents
+			windowShouldClose wnd >>= (flip unless) mainLoop
+
+detailZoom fdrt fiva dir wnd = do
 	fiva $~ (max 0 . (+) dir)
-	get fiva >>= winpr
+	get fiva >>= winpr wnd
 	fdrt $= True
-reshaper (Size xx yy) = let x=min xx yy in do
-	windowSize $= Size x x
-	viewport $= (Position 0 0,Size x x)
+
+reshaper :: WindowSizeCallback
+reshaper wnd xx yy = let x=min xx yy in do
+	unless (xx /= yy) $ setWindowSize wnd x x
+	viewport $= (Position 0 0,Size (toEnum x) (toEnum x))
 	loadIdentity
 	ortho 0 (fromIntegral x) 0 (fromIntegral x) 0 1
-zoomAdjust :: IORef (Double, Double, Double) -> Position -> IO (Double,Double)
-zoomAdjust xyold (Position x y) = do
-	(Size w _) <- get windowSize
+
+zoomAdjust :: IORef (Double,Double,Double) -> Window -> (Double,Double) -> IO (Double,Double)
+zoomAdjust xyold wnd (x,y) = do
+	w <- getwinwid wnd
 	(a,b,c) <- get xyold
-	return $! (a+(fromIntegral x/fromIntegral w)*c,b+(fromIntegral y/fromIntegral w)*c)
-keyZoom _ _ _ (CharKey '.') Press = do
-	(Position x y) <- get mousePos
-	winpr $ show x++' ':show y
-keyZoom fdrt fiva _ (SpecialKey UP) Press = detailZoom fdrt fiva 1
-keyZoom fdrt fiva _ (SpecialKey DOWN) Press = detailZoom fdrt fiva (-1)
-keyZoom _ _ quit (SpecialKey ESC) Press = quit $= True
-keyZoom _ _ _ _ _ = do return ()
-displayZoom xydrt xyold xynew _ _ _ _ ButtonLeft Press = do
-	xy <- getmouseflip
-	xydrt $= True >> zoomAdjust xyold xy >>= (xynew$=)
-displayZoom xydrt xyold xynew fdrt _ _ _ ButtonLeft Release = do
-	xy <- getmouseflip
+	return $! (a+(x/w)*c,b+(y/w)*c)
+
+keyZoom :: IORef Bool -> IORef Int -> Window -> Key -> Int -> KeyState -> ModifierKeys -> IO ()
+keyZoom _ _ wnd (Key'Period) _ KeyState'Pressed _ = do
+	(x,y) <- getCursorPos wnd
+	winpr wnd $ show x++' ':show y
+keyZoom fdrt fiva wnd (Key'Up) _ KeyState'Pressed _ = detailZoom fdrt fiva 1 wnd
+keyZoom fdrt fiva wnd (Key'Down) _ KeyState'Pressed _ = detailZoom fdrt fiva (-1) wnd
+keyZoom _ _ wnd (Key'Escape) _ KeyState'Pressed _ = setWindowShouldClose wnd True
+keyZoom _ _ _ _ _ _ _ = do return ()
+
+displayZoom :: IORef Bool -> IORef (Double,Double,Double) -> IORef (Double,Double) -> IORef Bool -> IORef Int -> IORef (Int -> Complex Double -> Color3 GLfloat) -> [(String, IO ())] -> Window -> MouseButton -> MouseButtonState -> ModifierKeys -> IO ()
+displayZoom xydrt xyold xynew _ _ _ _ wnd MouseButton'1 MouseButtonState'Pressed _ = do
+	xy <- getmouseflip wnd
+	xydrt $= True >> zoomAdjust xyold wnd xy >>= (xynew$=)
+displayZoom xydrt xyold xynew fdrt _ _ _ wnd MouseButton'1 MouseButtonState'Released _ = do
+	xy <- getmouseflip wnd
 	xyd <- get xydrt
 	when xyd $ do
 		xydrt $= False
 		(xn,yn) <- get xynew
-		(x,y) <- zoomAdjust xyold xy
+		(x,y) <- zoomAdjust xyold wnd xy
 		xyn <- if x==xn && y==yn then get xyold >>= (\(_,_,c)->return (x-c,y-c,c*2))
 			else return (min x xn,min y yn,max (abs $ x-xn) (abs $ y-yn))
 		xyold $= xyn
-		winpr xyn
+		winpr wnd xyn
 		fdrt $= True
-displayZoom _ xyold _ fdrt finc func _ ButtonMiddle Press = do
-	xy <- getmouseflip
-	(x,y) <- zoomAdjust xyold xy
+displayZoom _ xyold _ fdrt finc func _ wnd MouseButton'3 MouseButtonState'Pressed _ = do
+	xy <- getmouseflip wnd
+	(x,y) <- zoomAdjust xyold wnd xy
 	func $= julia (x:+y)
 	finc $= 100
 	fdrt $= True
-displayZoom _ _ _ fdrt _ _ menu ButtonRight Release = do
-	w <- get windowSize >>= \(Size w _) -> return ((unsafeCoerce :: GLsizei -> GLint) w)
-	(Position x y) <- get mousePos
-	mid <- return $ fromIntegral $ (div (w-y) 16)+(if x<128 then 0 else (div w 16)+1)
+displayZoom _ _ _ fdrt _ _ menu wnd MouseButton'2 MouseButtonState'Released _ = do
+	w <- getwinwid wnd
+	(x,y) <- getCursorPos wnd
+	mid <- return $ truncate $ ((w-y)/16)+(if x<128 then 0 else (w/16)+1)
 	print mid
 	when (mid < length menu) $ do
 		snd $ menu !! mid
 		fdrt $= True
-displayZoom xydrt _ _ _ _ _ _ _ _ = xydrt $= False
-pts :: (Double,Double,Double) -> GLshort -> [Complex Double]
-pts (x1,y1,c) wid = [(x1+(c/w)*x):+(y1+(c/w)*y)|x<-[0..w],y<-[0..w]] where w = fromIntegral wid
-displayMap xyold fiva finc func = do
-	w <- get windowSize >>= return . (\(Size w _)->fromIntegral (w-1))
+displayZoom xydrt _ _ _ _ _ _ _ _ _ _ = xydrt $= False
+
+pts :: (Double,Double,Double) -> Double -> [Complex Double]
+pts (x1,y1,c) w = [(x1+(c/w)*x):+(y1+(c/w)*y)|x<-[0..w],y<-[0..w]]
+
+displayMap :: IORef (Double,Double,Double) -> IORef Int -> IORef Int -> IORef (Int -> Complex Double -> Color3 GLfloat) -> Window -> IO ()
+displayMap xyold fiva finc func wnd = do
+	w <- getwinwid wnd >>= (\w -> return $ w-1)
 	xy <- get xyold
 	func <- get func
 	inc <- get finc
 	vc <- get fiva >>= \iva -> return $ iva*inc
-	t <- getPOSIXTime
-	unsafeRenderPrimitive Points $ zipWithM_ (\v c->color c >> vertex v) [Vertex2 a b|a<-[0..w],b<-[0..w]] $ withStrategy (parBuffer 512 rseq) . map (func vc) $ pts xy w
-	getPOSIXTime >>= print . subtract t
+	(Just t) <- getTime
+	unsafeRenderPrimitive Points $ zipWithM_ (\v c->color c >> vertex v) [Vertex2 a b|a<-[0..((truncate w)::GLint)],b<-[0..((truncate w)::GLint)]] $ withStrategy (parBuffer 512 rseq) . map (func vc) $ pts xy w
+	getTime >>= (\(Just t2) -> (print . subtract t) t2)
+
 readDoub :: String -> Double
 readComp :: String -> Complex Double
 readPoly :: String -> [Complex Double]

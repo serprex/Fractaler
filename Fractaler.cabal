@@ -2,11 +2,11 @@ Name: Fractaler
 Author: Demur Rumed
 maintainer: Demur Rumed
 category: Graphics
-version: 2
+version: 3
 build-type: Simple
-license: PublicDomain
+license: MIT
 description: Fractal renderer
-Build-Depends: base, time, random, parallel >= 3, OpenGL, GLFW
+Build-Depends: base, time, random, parallel >= 3, OpenGL, GLFW-b, FTGL
 ghc-options: -threaded -rtsopts -with-rtsopts=-N
 Executable: Fractaler
 Main-is: Fractaler.hs
