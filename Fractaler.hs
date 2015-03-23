@@ -177,7 +177,6 @@ detailZoom fdrt fiva dir wnd = do
 
 reshaper :: WindowSizeCallback
 reshaper wnd xx yy = let x=min xx yy in do
-	unless (xx /= yy) $ setWindowSize wnd x x
 	viewport $= (Position 0 0,Size (toEnum x) (toEnum x))
 	loadIdentity
 	ortho 0 (fromIntegral x) 0 (fromIntegral x) 0 1
@@ -188,16 +187,13 @@ zoomAdjust xyold wnd (x,y) = do
 	(a,b,c) <- get xyold
 	return $! (a+(x/w)*c,b+(y/w)*c)
 
-keyZoom :: IORef Bool -> IORef Int -> Window -> Key -> Int -> KeyState -> ModifierKeys -> IO ()
-keyZoom _ _ wnd (Key'Period) _ KeyState'Pressed _ = do
-	(x,y) <- getCursorPos wnd
-	winpr wnd $ show x++' ':show y
+keyZoom :: IORef Bool -> IORef Int -> KeyCallback
 keyZoom fdrt fiva wnd (Key'Up) _ KeyState'Pressed _ = detailZoom fdrt fiva 1 wnd
 keyZoom fdrt fiva wnd (Key'Down) _ KeyState'Pressed _ = detailZoom fdrt fiva (-1) wnd
 keyZoom _ _ wnd (Key'Escape) _ KeyState'Pressed _ = setWindowShouldClose wnd True
 keyZoom _ _ _ _ _ _ _ = do return ()
 
-displayZoom :: IORef Bool -> IORef (Double,Double,Double) -> IORef (Double,Double) -> IORef Bool -> IORef Int -> IORef (Int -> Complex Double -> Color3 GLfloat) -> [(String, IO ())] -> Window -> MouseButton -> MouseButtonState -> ModifierKeys -> IO ()
+displayZoom :: IORef Bool -> IORef (Double,Double,Double) -> IORef (Double,Double) -> IORef Bool -> IORef Int -> IORef (Int -> Complex Double -> Color3 GLfloat) -> [(String, IO ())] -> MouseButtonCallback
 displayZoom xydrt xyold xynew _ _ _ _ wnd MouseButton'1 MouseButtonState'Pressed _ = do
 	xy <- getmouseflip wnd
 	xydrt $= True >> zoomAdjust xyold wnd xy >>= (xynew$=)
@@ -221,8 +217,8 @@ displayZoom _ xyold _ fdrt finc func _ wnd MouseButton'3 MouseButtonState'Presse
 	fdrt $= True
 displayZoom _ _ _ fdrt _ _ menu wnd MouseButton'2 MouseButtonState'Released _ = do
 	w <- getwinwid wnd
-	(x,y) <- getCursorPos wnd
-	mid <- return $ truncate $ ((w-y)/16)+(if x<128 then 0 else (w/16)+1)
+	(x,y) <- getmouseflip wnd
+	mid <- return $ truncate $ (y/16)+(if x<128 then 0 else (w/16)+1)
 	print mid
 	when (mid < length menu) $ do
 		snd $ menu !! mid
