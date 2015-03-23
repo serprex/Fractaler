@@ -2,10 +2,7 @@ Left press one corner, release on the opposite corner. A square will be selected
 Also note that a click will zoom out
 Scroll changes detail
 Right click results in the menu
-Middle click changes to a the Julia Set of the point clicked
-
-For threading, invoke as Fractaler +RTS -N after compiling with ghc --make Fractaler -threaded -rtsopts
-I'm unaware of how to get the Cabal binary to run with rtsopts
+Middle click changes to the Julia Set of the point clicked
 
 Input Syntax
 Complex numbers are specified as real+imag
