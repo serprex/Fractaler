@@ -8,6 +8,6 @@ description: Fractal renderer
 cabal-version: >= 1.2
 executable Fractaler
   build-depends: base, time, random, parallel >= 3, OpenGL, GLFW-b, FTGL
-  ghc-options: -threaded -rtsopts -with-rtsopts=-N
+  ghc-options: -fno-warn-tabs -threaded -rtsopts -with-rtsopts=-N
   main-is: Fractaler.hs
 

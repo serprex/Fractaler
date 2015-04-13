@@ -170,6 +170,7 @@ main' wnd xydrt xyold xynew fdrt fiva finc func font menu = do
 			waitEvents
 			windowShouldClose wnd >>= (flip unless) mainLoop
 
+detailZoom :: IORef Bool -> IORef Int -> Int -> Window -> IO ()
 detailZoom fdrt fiva dir wnd = do
 	fiva $~ (max 0 . (+) dir)
 	get fiva >>= winpr wnd
