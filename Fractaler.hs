@@ -161,8 +161,7 @@ main' wnd xydrt xyold xynew fdrt fiva finc func font menu = do
 		evalMenu :: [(String, IO ())] -> Int -> Int -> IO ()
 		evalMenu ((a,f):as) x y = do
 			w <- getwinwid wnd
-			diffx <- return $ if y>=(truncate w) then 128 else 0
-			diffy <- return $ if y>=(truncate w) then -y else 16
+			(diffx,diffy) <- return $ if y>=(truncate w) then (128, -y) else (0, 16)
 			glTranslatef (fromIntegral diffx) (fromIntegral diffy) (0::GLfloat)
 			renderFont font a Front
 			(if null as then return () else evalMenu as (x+diffx) (y+diffy))

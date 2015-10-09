@@ -20,8 +20,7 @@ hvrgb hc vv = (\(a,b,c)->((doubleToGF a),(doubleToGF b),(doubleToGF c))) $ case 
 	3->(v,hf,0)
 	4->(v-hf,v,0)
 	5->(0,v,hf)
-	_->
-		let hv = if isNaN h then 0.5 else if isInfinite h then 0.75 else 0.25
+	_->let hv = if isNaN h then 0.5 else if isInfinite h then 0.75 else 0.25
 		in (hv,hv,hv)
 	where
 		v=min vv 1
