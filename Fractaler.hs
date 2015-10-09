@@ -2,7 +2,7 @@
 {-# OPTIONS -fexcess-precision -funbox-strict-fields -feager-blackholing -O2#-}
 module Main(main) where
 import Prelude hiding (init)
-import Graphics.Rendering.OpenGL hiding (Front)
+import Graphics.Rendering.OpenGL.Raw.Version21
 import Graphics.Rendering.FTGL
 import Graphics.UI.GLFW
 import Data.IORef
@@ -13,6 +13,8 @@ import System.IO(hFlush,stdout)
 import System.Random(randomRIO,randomIO,randomRs,mkStdGen)
 import System.Environment(getArgs)
 import Templates
+
+type Color3 = (GLfloat,GLfloat,GLfloat)
 
 doUntil :: (a -> Bool) -> IO a -> IO a
 doUntil p x = do
@@ -36,6 +38,15 @@ getmouseflip :: Window -> IO (Double,Double)
 getmouseflip wnd = do
 	w <- getwinwid wnd
 	getCursorPos wnd >>= \(x,y) -> return (x,(w-y))
+
+get :: IORef a -> IO a
+get = readIORef
+
+($=) :: IORef a -> a -> IO ()
+($=) = writeIORef
+
+($~) :: IORef a -> (a -> a) -> IO ()
+($~) = modifyIORef
 
 main = do
 	setErrorCallback $ Just (\e s -> putStrLn $ unwords [show e, show s])
@@ -63,12 +74,12 @@ main = do
 			meop (julia cm) 100),
 		("JuliaInMan",
 		do
-			cm<-doUntil ((==Color3 0 0 0) . mandel 2) $ rancom (-2,1.5) (-2,2)
+			cm<-doUntil ((==(0,0,0)) . mandel 2) $ rancom (-2,1.5) (-2,2)
 			winpr wnd cm
 			meop (julia cm) 100),
 		("JuliaInManButOut",
 		do
-			cm<-doUntil (\x->mandel 9 x==Color3 0 0 0&&mandel 999 x/=Color3 0 0 0) $ rancom (-2,1.5) (-2,2)
+			cm<-doUntil (\x->mandel 9 x==(0,0,0)&&mandel 999 x/=(0,0,0)) $ rancom (-2,1.5) (-2,2)
 			winpr wnd cm
 			meop (julia cm) 100),
 		("Mandelbrot",meop mandel 100),
@@ -138,7 +149,7 @@ main = do
 	where
 		getPrompt x = putStr (x++": ") >> hFlush stdout >> getLine
 
-main' :: Window -> IORef Bool -> IORef (Double,Double,Double) -> IORef (Double,Double) -> IORef Bool -> IORef Int -> IORef Int -> IORef (Int -> Complex Double -> Color3 GLfloat) -> Font -> [(String, IO ())] -> IO ()
+main' :: Window -> IORef Bool -> IORef (Double,Double,Double) -> IORef (Double,Double) -> IORef Bool -> IORef Int -> IORef Int -> IORef (Int -> Complex Double -> Color3) -> Font -> [(String, IO ())] -> IO ()
 main' wnd xydrt xyold xynew fdrt fiva finc func font menu = do
 	setKeyCallback wnd $ Just $ keyZoom fdrt fiva
 	setWindowSizeCallback wnd $ Just $ reshaper
@@ -152,7 +163,7 @@ main' wnd xydrt xyold xynew fdrt fiva finc func font menu = do
 			w <- getwinwid wnd
 			diffx <- return $ if y>=(truncate w) then 128 else 0
 			diffy <- return $ if y>=(truncate w) then -y else 16
-			translate $ Vector3 (fromIntegral diffx) (fromIntegral diffy) (0::GLfloat)
+			glTranslatef (fromIntegral diffx) (fromIntegral diffy) (0::GLfloat)
 			renderFont font a Front
 			(if null as then return () else evalMenu as (x+diffx) (y+diffy))
 		mainLoop :: IO ()
@@ -160,12 +171,14 @@ main' wnd xydrt xyold xynew fdrt fiva finc func font menu = do
 			get fdrt >>= (flip when $ do
 				fdrt $= False
 				displayMap xyold fiva finc func wnd)
-			getMouseButton wnd MouseButton'2 >>= (flip (when.(MouseButtonState'Pressed==)) $ preservingMatrix $ do
-				loadIdentity
-				color $ Color3 (1::GLfloat) 0 0
-				ortho 0 511 0 511 0 1
-				translate $ Vector3 0 (-16::GLfloat) 0
-				evalMenu menu 0 0)
+			getMouseButton wnd MouseButton'2 >>= (flip (when.(MouseButtonState'Pressed==)) $ do
+				glPushMatrix
+				glLoadIdentity
+				glColor3f (1::GLfloat) 0 0
+				glOrtho (0::GLdouble) 511 0 511 0 1
+				glTranslatef 0 (-16::GLfloat) 0
+				evalMenu menu 0 0
+				glPopMatrix)
 			swapBuffers wnd
 			waitEvents
 			windowShouldClose wnd >>= (flip unless) mainLoop
@@ -178,9 +191,9 @@ detailZoom fdrt fiva dir wnd = do
 
 reshaper :: WindowSizeCallback
 reshaper wnd xx yy = let x=min xx yy in do
-	viewport $= (Position 0 0,Size (toEnum x) (toEnum x))
-	loadIdentity
-	ortho 0 (fromIntegral x) 0 (fromIntegral x) 0 1
+	glViewport 0 0 (toEnum x) (toEnum x)
+	glLoadIdentity
+	glOrtho 0 (fromIntegral x) 0 (fromIntegral x) 0 1
 
 zoomAdjust :: IORef (Double,Double,Double) -> Window -> (Double,Double) -> IO (Double,Double)
 zoomAdjust xyold wnd (x,y) = do
@@ -194,7 +207,7 @@ keyZoom fdrt fiva wnd (Key'Down) _ KeyState'Pressed _ = detailZoom fdrt fiva (-1
 keyZoom _ _ wnd (Key'Escape) _ KeyState'Pressed _ = setWindowShouldClose wnd True
 keyZoom _ _ _ _ _ _ _ = do return ()
 
-displayZoom :: IORef Bool -> IORef (Double,Double,Double) -> IORef (Double,Double) -> IORef Bool -> IORef Int -> IORef (Int -> Complex Double -> Color3 GLfloat) -> [(String, IO ())] -> MouseButtonCallback
+displayZoom :: IORef Bool -> IORef (Double,Double,Double) -> IORef (Double,Double) -> IORef Bool -> IORef Int -> IORef (Int -> Complex Double -> Color3) -> [(String, IO ())] -> MouseButtonCallback
 displayZoom xydrt xyold xynew _ _ _ _ wnd MouseButton'1 MouseButtonState'Pressed _ = do
 	xy <- getmouseflip wnd
 	xydrt $= True >> zoomAdjust xyold wnd xy >>= (xynew$=)
@@ -229,7 +242,7 @@ displayZoom xydrt _ _ _ _ _ _ _ _ _ _ = xydrt $= False
 pts :: (Double,Double,Double) -> Double -> [Complex Double]
 pts (x1,y1,c) w = [(x1+(c/w)*x):+(y1+(c/w)*y)|x<-[0..w],y<-[0..w]]
 
-displayMap :: IORef (Double,Double,Double) -> IORef Int -> IORef Int -> IORef (Int -> Complex Double -> Color3 GLfloat) -> Window -> IO ()
+displayMap :: IORef (Double,Double,Double) -> IORef Int -> IORef Int -> IORef (Int -> Complex Double -> Color3) -> Window -> IO ()
 displayMap xyold fiva finc func wnd = do
 	w <- getwinwid wnd >>= (\w -> return $ w-1)
 	xy <- get xyold
@@ -237,7 +250,9 @@ displayMap xyold fiva finc func wnd = do
 	inc <- get finc
 	vc <- get fiva >>= \iva -> return $ iva*inc
 	(Just t) <- getTime
-	unsafeRenderPrimitive Points $ zipWithM_ (\v c->color c >> vertex v) [Vertex2 a b|a<-[0..((truncate w)::GLint)],b<-[0..((truncate w)::GLint)]] $ withStrategy (parBuffer 512 rseq) . map (func vc) $ pts xy w
+	glBegin gl_POINTS
+	zipWithM_ (\(x,y) (r,g,b)->glColor3f r g b >> glVertex2i x y) [(a,b)|a<-[0..((truncate w)::GLint)],b<-[0..((truncate w)::GLint)]] $ withStrategy (parBuffer 512 rseq) . map (func vc) $ pts xy w
+	glEnd
 	getTime >>= (\(Just t2) -> (print . subtract t) t2)
 
 readDoub :: String -> Double
