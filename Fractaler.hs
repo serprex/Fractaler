@@ -7,6 +7,10 @@ import Graphics.Rendering.FTGL
 import Graphics.UI.GLFW
 import Data.IORef
 import Data.Complex hiding (magnitude) --Too correct. Faster magnitude in Templates
+import Foreign.Ptr
+import Foreign.Marshal.Alloc
+import Foreign.Marshal.Array
+import Foreign.Storable
 import Control.Monad
 import Control.Parallel.Strategies(parBuffer,rseq,withStrategy)
 import System.IO(hFlush,stdout)
@@ -34,11 +38,6 @@ getwinwid wnd = do
 	(w,_) <- getWindowSize wnd
 	return $ fromIntegral w
 
-getmouseflip :: Window -> IO (Double,Double)
-getmouseflip wnd = do
-	w <- getwinwid wnd
-	getCursorPos wnd >>= \(x,y) -> return (x,(w-y))
-
 get :: IORef a -> IO a
 get = readIORef
 
@@ -53,8 +52,15 @@ main = do
 	init
 	(Just wnd) <- createWindow 512 512 "Fractaler" Nothing Nothing
 	makeContextCurrent (Just wnd)
+	--glEnable gl_TEXTURE_2D
 	font <- createTextureFont "DejaVuSansMono.ttf"
-	setFontFaceSize font 16 72
+	setFontFaceSize font 16 0
+	gfxtx <- alloca (\x -> glGenTextures 1 x >> peek x)
+	glBindTexture gl_TEXTURE_2D gfxtx
+	glTexParameteri gl_TEXTURE_2D gl_TEXTURE_WRAP_T $ fromIntegral gl_CLAMP_TO_EDGE
+	glTexParameteri gl_TEXTURE_2D gl_TEXTURE_WRAP_S $ fromIntegral gl_CLAMP_TO_EDGE
+	glTexParameteri gl_TEXTURE_2D gl_TEXTURE_MAG_FILTER $ fromIntegral gl_NEAREST
+	glTexParameteri gl_TEXTURE_2D gl_TEXTURE_MIN_FILTER $ fromIntegral gl_NEAREST
 	reshaper wnd 512 512
 	args <- getArgs
 	rnd <- return $ null args
@@ -65,7 +71,7 @@ main = do
 	fiva <- newIORef 2
 	finc <- newIORef 25
 	func <- newIORef mandel
-	let meop x y = func $= x >> finc $= y in main' wnd xydrt xyold xynew fdrt fiva finc func font [
+	let meop x y = func $= x >> finc $= y in main' wnd xydrt xyold xynew fdrt fiva finc func gfxtx font [
 		("Reset", xyold$=(-2,-2,4)),
 		("Julia",
 		do
@@ -149,8 +155,8 @@ main = do
 	where
 		getPrompt x = putStr (x++": ") >> hFlush stdout >> getLine
 
-main' :: Window -> IORef Bool -> IORef (Double,Double,Double) -> IORef (Double,Double) -> IORef Bool -> IORef Int -> IORef Int -> IORef (Int -> Complex Double -> Color3) -> Font -> [(String, IO ())] -> IO ()
-main' wnd xydrt xyold xynew fdrt fiva finc func font menu = do
+main' :: Window -> IORef Bool -> IORef (Double,Double,Double) -> IORef (Double,Double) -> IORef Bool -> IORef Int -> IORef Int -> IORef (Int -> Complex Double -> Color3) -> GLuint -> Font -> [(String, IO ())] -> IO ()
+main' wnd xydrt xyold xynew fdrt fiva finc func gfxtx font menu = do
 	setKeyCallback wnd $ Just $ keyZoom fdrt fiva
 	setWindowSizeCallback wnd $ Just $ reshaper
 	setMouseButtonCallback wnd $ Just $ displayZoom xydrt xyold xynew fdrt finc func menu
@@ -159,26 +165,36 @@ main' wnd xydrt xyold xynew fdrt fiva finc func font menu = do
 	mainLoop
 	where
 		evalMenu :: [(String, IO ())] -> Int -> Int -> IO ()
-		evalMenu ((a,f):as) x y = do
-			w <- getwinwid wnd
-			(diffx,diffy) <- return $ if y>=(truncate w) then (128, -y) else (0, 16)
-			glTranslatef (fromIntegral diffx) (fromIntegral diffy) (0::GLfloat)
+		evalMenu ((a,f):as) x y = let (diffx,diffy) = (if y==0 then (196, 496) else (0, -16)) in do
 			renderFont font a Front
+			glTranslatef (fromIntegral diffx) (fromIntegral diffy) 0
 			(if null as then return () else evalMenu as (x+diffx) (y+diffy))
 		mainLoop :: IO ()
 		mainLoop = do
 			get fdrt >>= (flip when $ do
 				fdrt $= False
 				displayMap xyold fiva finc func wnd)
+			glBegin gl_QUADS
+			glTexCoord2f 0 0
+			glVertex2f (-1) (-1)
+			glTexCoord2f 0 1
+			glVertex2f 1 (-1)
+			glTexCoord2f 1 1
+			glVertex2f 1 1
+			glTexCoord2f 1 0
+			glVertex2f (-1) 1
+			glEnd
 			getMouseButton wnd MouseButton'2 >>= (flip (when.(MouseButtonState'Pressed==)) $ do
+				glColor3f 1 0 0
 				glPushMatrix
-				glLoadIdentity
-				glColor3f (1::GLfloat) 0 0
-				glOrtho (0::GLdouble) 511 0 511 0 1
-				glTranslatef 0 (-16::GLfloat) 0
-				evalMenu menu 0 0
-				glPopMatrix)
+				glOrtho 0 511 0 511 (-1) 1
+				glTranslatef 0 496 0
+				evalMenu menu 0 496
+				glPopMatrix
+				glColor3f 1 1 1
+				glBindTexture gl_TEXTURE_2D gfxtx)
 			swapBuffers wnd
+			glClear gl_COLOR_BUFFER_BIT
 			waitEvents
 			windowShouldClose wnd >>= (flip unless) mainLoop
 
@@ -191,14 +207,12 @@ detailZoom fdrt fiva dir wnd = do
 reshaper :: WindowSizeCallback
 reshaper wnd xx yy = let x=min xx yy in do
 	glViewport 0 0 (toEnum x) (toEnum x)
-	glLoadIdentity
-	glOrtho 0 (fromIntegral x) 0 (fromIntegral x) 0 1
 
 zoomAdjust :: IORef (Double,Double,Double) -> Window -> (Double,Double) -> IO (Double,Double)
 zoomAdjust xyold wnd (x,y) = do
 	w <- getwinwid wnd
 	(a,b,c) <- get xyold
-	return $! (a+(x/w)*c,b+(y/w)*c)
+	return $! (a+x*(c/w),b+c-y*(c/w))
 
 keyZoom :: IORef Bool -> IORef Int -> KeyCallback
 keyZoom fdrt fiva wnd (Key'Up) _ KeyState'Pressed _ = detailZoom fdrt fiva 1 wnd
@@ -208,10 +222,10 @@ keyZoom _ _ _ _ _ _ _ = do return ()
 
 displayZoom :: IORef Bool -> IORef (Double,Double,Double) -> IORef (Double,Double) -> IORef Bool -> IORef Int -> IORef (Int -> Complex Double -> Color3) -> [(String, IO ())] -> MouseButtonCallback
 displayZoom xydrt xyold xynew _ _ _ _ wnd MouseButton'1 MouseButtonState'Pressed _ = do
-	xy <- getmouseflip wnd
+	xy <- getCursorPos wnd
 	xydrt $= True >> zoomAdjust xyold wnd xy >>= (xynew$=)
 displayZoom xydrt xyold xynew fdrt _ _ _ wnd MouseButton'1 MouseButtonState'Released _ = do
-	xy <- getmouseflip wnd
+	xy <- getCursorPos wnd
 	xyd <- get xydrt
 	when xyd $ do
 		xydrt $= False
@@ -223,15 +237,14 @@ displayZoom xydrt xyold xynew fdrt _ _ _ wnd MouseButton'1 MouseButtonState'Rele
 		winpr wnd xyn
 		fdrt $= True
 displayZoom _ xyold _ fdrt finc func _ wnd MouseButton'3 MouseButtonState'Pressed _ = do
-	xy <- getmouseflip wnd
+	xy <- getCursorPos wnd
 	(x,y) <- zoomAdjust xyold wnd xy
 	func $= julia (x:+y)
 	finc $= 100
 	fdrt $= True
 displayZoom _ _ _ fdrt _ _ menu wnd MouseButton'2 MouseButtonState'Released _ = do
-	w <- getwinwid wnd
-	(x,y) <- getmouseflip wnd
-	mid <- return $ truncate $ (y/16)+(if x<128 then 0 else (w/16)+1)
+	(x,y) <- getCursorPos wnd
+	mid <- return $ truncate $ (y/16)+(if x<196 then 0 else 32)
 	print mid
 	when (mid < length menu) $ do
 		snd $ menu !! mid
@@ -243,15 +256,15 @@ pts (x1,y1,c) w = [(x1+(c/w)*x):+(y1+(c/w)*y)|x<-[0..w],y<-[0..w]]
 
 displayMap :: IORef (Double,Double,Double) -> IORef Int -> IORef Int -> IORef (Int -> Complex Double -> Color3) -> Window -> IO ()
 displayMap xyold fiva finc func wnd = do
-	w <- getwinwid wnd >>= (\w -> return $ w-1)
+	w <- getwinwid wnd >>= return . (subtract 1)
+	tw <- return $ truncate w
 	xy <- get xyold
 	func <- get func
 	inc <- get finc
-	vc <- get fiva >>= \iva -> return $ iva*inc
+	vc <- get fiva >>= return . (inc*)
 	(Just t) <- getTime
-	glBegin gl_POINTS
-	zipWithM_ (\(x,y) (r,g,b)->glColor3f r g b >> glVertex2i x y) [(a,b)|a<-[0..((truncate w)::GLint)],b<-[0..((truncate w)::GLint)]] $ withStrategy (parBuffer 512 rseq) . map (func vc) $ pts xy w
-	glEnd
+	colors <- return $ concat $ map (\(r,g,b) -> [r,g,b]) $ withStrategy (parBuffer 512 rseq) . map (func vc) $ pts xy w
+	withArray colors $ glTexImage2D gl_TEXTURE_2D 0 (fromIntegral gl_RGB) (tw+1) (tw+1) 0 gl_RGB gl_FLOAT
 	getTime >>= (\(Just t2) -> (print . subtract t) t2)
 
 readDoub :: String -> Double
