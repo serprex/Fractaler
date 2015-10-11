@@ -1,20 +1,17 @@
 {-# LANGUAGE BangPatterns#-}
 {-# OPTIONS -fexcess-precision -funbox-strict-fields -feager-blackholing -O2#-}
 module Templates(Color3,FractalCb,complex,collatz,newton,multibrot,julia,tricorn,burningship,nodoub,yxmandel,dagger,mandel,magnitude,magsqr,sicarp,sitabl,cantor,cantox,metaball) where
-import Graphics.Rendering.OpenGL.Raw.Types(GLfloat)
 import Data.Complex hiding (magnitude)
-import GHC.Float(double2Float,int2Double,double2Int,significand,isNaN,isInfinite)
-import Unsafe.Coerce(unsafeCoerce)
-type Color3 = (GLfloat, GLfloat, GLfloat)
+import GHC.Float(int2Double,double2Int,significand,isNaN,isInfinite)
+type Color3 = (Double, Double, Double)
 type FractalCb = Int -> Complex Double -> Color3
-doubleToGF = unsafeCoerce . double2Float :: Double -> GLfloat
 sqr !x=x*x
 cub !x=x*x*x
 magsqr,magnitude :: Complex Double -> Double
 magsqr (a:+b) = a*a+b*b
 magnitude = sqrt . magsqr
 hvrgb :: Complex Double -> Double -> Color3
-hvrgb hc vv = (\(a,b,c)->((doubleToGF a),(doubleToGF b),(doubleToGF c))) $ case double2Int h of
+hvrgb hc vv = case double2Int h of
 	0->(0,v-hf,v)
 	1->(hf,0,v)
 	2->(v,0,v-hf)
@@ -32,7 +29,7 @@ hvrgb hc vv = (\(a,b,c)->((doubleToGF a),(doubleToGF b),(doubleToGF c))) $ case 
 bluegrad :: Int -> Int -> Color3
 bluegrad' :: Double -> Color3
 bluegrad z zz = bluegrad' $ fromIntegral z/fromIntegral zz
-bluegrad' x = ((doubleToGF . cub) x, (doubleToGF . sqr) x, doubleToGF x)
+bluegrad' x = (cub x, sqr x, x)
 complex :: (Complex Double -> Complex Double) -> FractalCb
 newton :: (Complex Double -> Complex Double) -> (Complex Double -> Complex Double) -> FractalCb
 cantor,sicarp,sitabl,collatz,tricorn,burningship,nodoub,yxmandel,dagger,mandel :: FractalCb

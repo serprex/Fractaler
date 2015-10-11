@@ -16,6 +16,7 @@ import Control.Parallel.Strategies(parBuffer,rseq,withStrategy)
 import System.IO(hFlush,stdout)
 import System.Random(randomRIO,randomIO,randomRs,mkStdGen)
 import System.Environment(getArgs)
+import GHC.Float(double2Float)
 import Templates
 
 doUntil :: (a -> Bool) -> IO a -> IO a
@@ -269,7 +270,7 @@ displayMap xyold fiva finc func wnd = do
 	inc <- get finc
 	vc <- get fiva >>= return . (inc*)
 	(Just t) <- getTime
-	colors <- return $ concat $ map (\(r,g,b) -> [r,g,b]) $ withStrategy (parBuffer 512 rseq) . map (func vc) $ pts xy w
+	colors <- return $ concat $ map (\(r,g,b) -> map double2Float [r,g,b]) $ withStrategy (parBuffer 512 rseq) . map (func vc) $ pts xy w
 	withArray colors $ glTexImage2D gl_TEXTURE_2D 0 (fromIntegral gl_RGB) (tw+1) (tw+1) 0 gl_RGB gl_FLOAT
 	getTime >>= (\(Just t2) -> (print . subtract t) t2)
 
