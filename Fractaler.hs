@@ -161,7 +161,7 @@ main = do
 	where
 		getPrompt x = putStr (x++": ") >> hFlush stdout >> getLine
 
-main' :: Window -> IORef Bool -> IORef (Double,Double,Double) -> IORef (Double,Double) -> IORef Bool -> IORef Int -> IORef Int -> IORef (Int -> Complex Double -> Color3) -> GLuint -> Font -> [(String, IO ())] -> IO ()
+main' :: Window -> IORef Bool -> IORef (Double,Double,Double) -> IORef (Double,Double) -> IORef Bool -> IORef Int -> IORef Int -> IORef FractalCb -> GLuint -> Font -> [(String, IO ())] -> IO ()
 main' wnd xydrt xyold xynew fdrt fiva finc func gfxtx font menu = do
 	setKeyCallback wnd $ Just $ keyZoom fdrt fiva
 	setWindowSizeCallback wnd $ Just $ reshaper
@@ -226,7 +226,7 @@ keyZoom fdrt fiva wnd (Key'Down) _ KeyState'Pressed _ = detailZoom fdrt fiva (-1
 keyZoom _ _ wnd (Key'Escape) _ KeyState'Pressed _ = setWindowShouldClose wnd True
 keyZoom _ _ _ _ _ _ _ = do return ()
 
-displayZoom :: IORef Bool -> IORef (Double,Double,Double) -> IORef (Double,Double) -> IORef Bool -> IORef Int -> IORef (Int -> Complex Double -> Color3) -> [(String, IO ())] -> MouseButtonCallback
+displayZoom :: IORef Bool -> IORef (Double,Double,Double) -> IORef (Double,Double) -> IORef Bool -> IORef Int -> IORef FractalCb -> [(String, IO ())] -> MouseButtonCallback
 displayZoom xydrt xyold xynew _ _ _ _ wnd MouseButton'1 MouseButtonState'Pressed _ = do
 	xy <- getCursorPos wnd
 	xydrt $= True >> zoomAdjust xyold wnd xy >>= (xynew$=)
@@ -260,7 +260,7 @@ displayZoom xydrt _ _ _ _ _ _ _ _ _ _ = xydrt $= False
 pts :: (Double,Double,Double) -> Double -> [Complex Double]
 pts (x1,y1,c) w = [(x1+(c/w)*x):+(y1+(c/w)*y)|x<-[0..w],y<-[0..w]]
 
-displayMap :: IORef (Double,Double,Double) -> IORef Int -> IORef Int -> IORef (Int -> Complex Double -> Color3) -> Window -> IO ()
+displayMap :: IORef (Double,Double,Double) -> IORef Int -> IORef Int -> IORef FractalCb -> Window -> IO ()
 displayMap xyold fiva finc func wnd = do
 	w <- getwinwid wnd >>= return . (subtract 1)
 	tw <- return $ truncate w

@@ -1,6 +1,6 @@
 {-# LANGUAGE BangPatterns#-}
 {-# OPTIONS -fexcess-precision -funbox-strict-fields -feager-blackholing -O2#-}
-module Templates(Color3,complex,collatz,newton,multibrot,julia,tricorn,burningship,nodoub,yxmandel,dagger,mandel,magnitude,magsqr,sicarp,sitabl,cantor,cantox,metaball) where
+module Templates(Color3,FractalCb,complex,collatz,newton,multibrot,julia,tricorn,burningship,nodoub,yxmandel,dagger,mandel,magnitude,magsqr,sicarp,sitabl,cantor,cantox,metaball) where
 import Graphics.Rendering.OpenGL.Raw.Types(GLfloat)
 import Data.Complex hiding (magnitude)
 import GHC.Float(double2Float,int2Double,double2Int,significand,isNaN,isInfinite)
