@@ -18,8 +18,6 @@ import System.Random(randomRIO,randomIO,randomRs,mkStdGen)
 import System.Environment(getArgs)
 import Templates
 
-type Color3 = (GLfloat,GLfloat,GLfloat)
-
 doUntil :: (a -> Bool) -> IO a -> IO a
 doUntil p x = do
 	r <- x
@@ -29,6 +27,7 @@ ranpol :: IO [Complex Double]
 rancom x y = randomRIO x >>= return . (:+) >>= (randomRIO y >>=) . (return .)
 ranpol = randomIO >>= return . flip take . zipIt . randomRs (-4,4) . mkStdGen >>= (randomRIO (3,8) >>=) . (return .)
 	where zipIt (x:y:xs) = (x:+y):zipIt xs
+ranpolmag = ranpol >>= mapM (\(x:+y) -> randomRIO (1,99) >>= (\z-> return (((x/2):+(y/2)),z)))
 
 winpr :: Show a => Window -> a -> IO ()
 winpr wnd x = setWindowTitle wnd (show x) >> print x
@@ -52,7 +51,7 @@ main = do
 	init
 	(Just wnd) <- createWindow 512 512 "Fractaler" Nothing Nothing
 	makeContextCurrent (Just wnd)
-	--glEnable gl_TEXTURE_2D
+	glEnable gl_TEXTURE_2D
 	font <- createTextureFont "DejaVuSansMono.ttf"
 	setFontFaceSize font 16 0
 	gfxtx <- alloca (\x -> glGenTextures 1 x >> peek x)
@@ -151,7 +150,14 @@ main = do
 		("xx",meop (complex (\x->x**x)) 1),
 		("(x2-1)(x-2-i)2/(x2+2+2i)",meop (complex (\x->(x^2-1)*(x-(2:+(-1)))^2/(x^2+(2:+2)))) 1),
 		("sin",meop (complex sin) 1),
-		("sin . cos",meop (complex (sin . cos)) 1)]
+		("sin . cos",meop (complex (sin . cos)) 1),
+		("metaballs",
+		do
+			bs <- if rnd then ranpolmag else (do
+				pol <- getPrompt "Balls" >>= return . readPoly
+				mag <- getPrompt "Size" >>= return . readDoubs
+				return $ zip pol mag)
+			meop (metaball bs) 80)]
 	where
 		getPrompt x = putStr (x++": ") >> hFlush stdout >> getLine
 
@@ -269,6 +275,8 @@ displayMap xyold fiva finc func wnd = do
 
 readDoub :: String -> Double
 readComp :: String -> Complex Double
+readMulti :: (String -> a) -> String -> [a]
+readDoubs :: String -> [Double]
 readPoly :: String -> [Complex Double]
 diffPoly :: [Complex Double] -> [Complex Double]
 makePolyF :: [Complex Double] -> Complex Double -> Complex Double
@@ -277,10 +285,12 @@ readDoub (' ':x) = readDoub x
 readDoub ('-':x) = negate $ readDoub x
 readDoub x = if all (flip elem "0123456789. ") x && sum(map (fromEnum . (=='.')) x)<2 then read ('0':x) else 0
 readComp x = (\(x,y)->(if x==[] then 0 else readDoub x):+if y==[] then 0 else readDoub $ tail y) $ break (=='+') x
-readPoly x = readPoly $ break (==',') x
+readMulti f x = readM $ break (==',') x
 	where
-		readPoly (x,[]) = [readComp x]
-		readPoly (x,_:xs) = readComp x:(readPoly $ break (==',') xs)
+		readM (x,[]) = [f x]
+		readM (x,_:xs) = f x:(readM $ break (==',') xs)
+readDoubs = readMulti readDoub
+readPoly = readMulti readComp
 diffPoly [] = []
 diffPoly [x] = []
 diffPoly (_:x:xs) = x:zipWith (\(x:+y) z->(x*z):+(y*z)) xs [2..]

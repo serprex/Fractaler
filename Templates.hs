@@ -1,11 +1,12 @@
 {-# LANGUAGE BangPatterns#-}
 {-# OPTIONS -fexcess-precision -funbox-strict-fields -feager-blackholing -O2#-}
-module Templates(complex,collatz,newton,multibrot,julia,tricorn,burningship,nodoub,yxmandel,dagger,mandel,magnitude,magsqr,sicarp,sitabl,cantor,cantox) where
+module Templates(Color3,complex,collatz,newton,multibrot,julia,tricorn,burningship,nodoub,yxmandel,dagger,mandel,magnitude,magsqr,sicarp,sitabl,cantor,cantox,metaball) where
 import Graphics.Rendering.OpenGL.Raw.Types(GLfloat)
 import Data.Complex hiding (magnitude)
 import GHC.Float(double2Float,int2Double,double2Int,significand,isNaN,isInfinite)
 import Unsafe.Coerce(unsafeCoerce)
 type Color3 = (GLfloat, GLfloat, GLfloat)
+type FractalCb = Int -> Complex Double -> Color3
 doubleToGF = unsafeCoerce . double2Float :: Double -> GLfloat
 sqr !x=x*x
 cub !x=x*x*x
@@ -28,11 +29,16 @@ hvrgb hc vv = (\(a,b,c)->((doubleToGF a),(doubleToGF b),(doubleToGF c))) $ case 
 		--v=abs $ significand vv --Discontinuities at pretty intervals. Good for Complexes, not so much for Newtons
 		h=3+phase hc*3/pi
 		hf=v*(h-(int2Double.double2Int)h)
-complex :: (Complex Double -> Complex Double) -> Int -> Complex Double -> Color3
-newton :: (Complex Double -> Complex Double) -> (Complex Double -> Complex Double) -> Int -> Complex Double -> Color3
-cantor,sicarp,sitabl,collatz,tricorn,burningship,nodoub,yxmandel,dagger,mandel :: Int -> Complex Double -> Color3
-julia :: Complex Double -> Int -> Complex Double -> Color3
-multibrot :: Int -> Int -> Complex Double -> Color3
+bluegrad :: Int -> Int -> Color3
+bluegrad' :: Double -> Color3
+bluegrad z zz = bluegrad' $ fromIntegral z/fromIntegral zz
+bluegrad' x = ((doubleToGF . cub) x, (doubleToGF . sqr) x, doubleToGF x)
+complex :: (Complex Double -> Complex Double) -> FractalCb
+newton :: (Complex Double -> Complex Double) -> (Complex Double -> Complex Double) -> FractalCb
+cantor,sicarp,sitabl,collatz,tricorn,burningship,nodoub,yxmandel,dagger,mandel :: FractalCb
+julia :: Complex Double -> FractalCb
+multibrot :: Int -> FractalCb
+metaball :: [(Complex Double, Double)] -> FractalCb
 complex !f z xy = hvrgb (f xy) $ case z of
 	_->logBase (fromIntegral (z+1)) $ magnitude (f xy)+1
 newton !f !g z xy = hvrgb x $ fromIntegral zz/fromIntegral z
@@ -44,47 +50,47 @@ julia x zz xx = f zz xx
 	where f z !xx
 		|z==0 = (0,0,0)
 		|magsqr xx<4 = f (z-1) (xx*xx+x)
-		|True = ((cub $ fromIntegral z/fromIntegral zz), (sqr $ fromIntegral z/fromIntegral zz), (fromIntegral z/fromIntegral zz))
+		|True = bluegrad z zz
 mandel ii x = f ii x
 	where f i !z
 		|i==0 = (0,0,0)
 		|magsqr z<4 = f (i-1) (z*z+x)
-		|True = ((cub $ fromIntegral i/fromIntegral ii), (sqr $ fromIntegral i/fromIntegral ii), (fromIntegral i/fromIntegral ii))
+		|True = bluegrad i ii
 dagger zz (x:+y) = f zz x y
 	where f z zr zi
 		|z==0 = (0,0,0)
 		|zr*zr*zi*zi<4 = f (z-1) (zr*zr-zi*zi+cos (atan2 y x)) (2*zr*zi+sin (atan2 y x))
-		|True = ((cub $ fromIntegral z/fromIntegral zz), (sqr $ fromIntegral z/fromIntegral zz), (fromIntegral z/fromIntegral zz))
+		|True = bluegrad z zz
 multibrot ex ii xy = f ii xy
 	where f i z
 		|i==0 = (0,0,0)
 		|magsqr z<4 = f (i-1) (z^ex+xy)
-		|True = ((cub $ fromIntegral i/fromIntegral ii), (sqr $ fromIntegral i/fromIntegral ii), (fromIntegral i/fromIntegral ii))
+		|True = bluegrad i ii
 yxmandel zz (x:+y) = f zz x y
 	where f z !zr !zi
 		|z==0 = (0,0,0)
 		|zr*zr+zi*zi<4 = f (z-1) (zr*zr-zi*zi+y*x) (2*zr*zi+y)
-		|True = ((cub $ fromIntegral z/fromIntegral zz), (sqr $ fromIntegral z/fromIntegral zz), (fromIntegral z/fromIntegral zz))
+		|True = bluegrad z zz
 nodoub zz (x:+y) = f zz x y
 	where f z !zr !zi
 		|z==0 = (0,0,0)
 		|zr*zr+zi*zi<4 = f (z-1) (zr*zr-zi*zi+x) (zr*zi+y)
-		|True = ((cub $ fromIntegral z/fromIntegral zz), (sqr $ fromIntegral z/fromIntegral zz), (fromIntegral z/fromIntegral zz))
+		|True = bluegrad z zz
 tricorn zz (x:+y) = f zz x y
 	where f z !zr !zi
 		|z==0 = (0,0,0)
 		|zr*zr+zi*zi<4 = f (z-1) (zi*zi-zr*zr+x) (2*zr*zi+y)
-		|True = ((cub $ fromIntegral z/fromIntegral zz), (sqr $ fromIntegral z/fromIntegral zz), (fromIntegral z/fromIntegral zz))
+		|True = bluegrad z zz
 burningship zz (x:+y) = f zz x y
 	where f z !zr !zi
 		|z==0 = (0,0,0)
 		|zr*zr+zi*zi<4 = f (z-1) (zi*zi-zr*zr+x) (2*abs(zr*zi)+y)
-		|True = ((cub $ fromIntegral z/fromIntegral zz), (sqr $ fromIntegral z/fromIntegral zz), (fromIntegral z/fromIntegral zz))
+		|True = bluegrad z zz
 collatz zz xy = f zz xy
 	where f z !x
 		|z==0 = (0,0,0)
 		|magsqr x<1/0 = f (z-1) $ 0.25+x-(cos $ x*pi)*(0.25+x*0.5)
-		|True = ((sqr $ fromIntegral z/fromIntegral zz), (fromIntegral z/fromIntegral zz), (cub(fromIntegral z)/fromIntegral zz))
+		|True = bluegrad z zz
 sicarp zz (x:+y) = f (zz+1) 0.0 1.0 0.0 1.0
 	where f i !x1 !x2 !y1 !y2
 		|i==0 = (0,0,0)
@@ -167,3 +173,7 @@ cantox zz (x:+y) = f (zz+1) True 0.0 1.0 0.0 1.0
 			y23=y2-y3
 			f0=f (i-1) False
 			f1=f (i-1) h
+metaball bs zz xy = bluegrad' $ (f bs xy 0)/(fromIntegral zz)
+	where
+		f [] !_ !a = a
+		f ((b,t):bs) xy a = f bs xy (a+t/(sqrt $ magnitude $ xy-b))
