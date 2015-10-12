@@ -1,0 +1,19 @@
+name: Fractaler
+author: serprex
+maintainer: serprex
+category: Graphics
+version: 3.0.1
+build-type: Simple
+license: MIT
+synopsis: Yet another fractal zoomer
+description: Essentially a generic software pixel shader with zooming
+cabal-version: >= 1.6
+source-repository head
+ type: git
+ location: git://github.com/serprex/Fractaler
+executable Fractaler
+ build-depends: base<=4.8.1.0, time, random, parallel >= 3, OpenGLRaw, GLFW-b, FTGL
+ ghc-options: -fno-warn-tabs -threaded -rtsopts -with-rtsopts=-N
+ main-is: Fractaler.hs
+ other-modules: Templates
+
