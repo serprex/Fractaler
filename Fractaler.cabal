@@ -12,8 +12,8 @@ source-repository head
  type: git
  location: git://github.com/serprex/Fractaler
 executable Fractaler
- build-depends: base<=4.8.1.0, time, random, parallel >= 3, OpenGLRaw, GLFW-b, FTGL
- ghc-options: -fno-warn-tabs -threaded -rtsopts -with-rtsopts=-N
+ build-depends: base<=4.8.1.0, time, random, parallel >= 3, OpenGLRaw, GLFW-b, FTGL, fast-math
+ ghc-options: -O2 -fno-warn-tabs -threaded -rtsopts -with-rtsopts=-N
  main-is: Fractaler.hs
  other-modules: Templates
 

@@ -17,6 +17,7 @@ import System.IO(hFlush,stdout)
 import System.Random(randomRIO,randomIO,randomRs,mkStdGen)
 import System.Environment(getArgs)
 import GHC.Float(double2Float)
+import Numeric.FastMath
 import Templates
 
 doUntil :: (a -> Bool) -> IO a -> IO a

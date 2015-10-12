@@ -2,6 +2,7 @@
 {-# OPTIONS -fexcess-precision -funbox-strict-fields -feager-blackholing -O2#-}
 module Templates(Color3,FractalCb,complex,collatz,newton,multibrot,julia,tricorn,burningship,nodoub,yxmandel,dagger,mandel,magnitude,magsqr,sicarp,sitabl,cantor,cantox,metaball) where
 import Data.Complex hiding (magnitude)
+import Numeric.FastMath
 import GHC.Float(int2Double,double2Int,significand,isNaN,isInfinite)
 type Color3 = (Double, Double, Double)
 type FractalCb = Int -> Complex Double -> Color3
