@@ -259,7 +259,7 @@ displayZoom _ _ _ fdrt _ _ menu wnd MouseButton'2 MouseButtonState'Released _ = 
 displayZoom xydrt _ _ _ _ _ _ _ _ _ _ = xydrt $= False
 
 pts :: (Double,Double,Double) -> Double -> [Complex Double]
-pts (x1,y1,c) w = [(x1+(c/w)*x):+(y1+(c/w)*y)|x<-[0..w],y<-[0..w]]
+pts (x1,y1,c) w = let cw = c/w in [(x1+x):+(y1+y)|x<-[0,cw..c],y<-[0,cw..c]]
 
 displayMap :: IORef (Double,Double,Double) -> IORef Int -> IORef Int -> IORef FractalCb -> Window -> IO ()
 displayMap xyold fiva finc func wnd = do
@@ -270,9 +270,9 @@ displayMap xyold fiva finc func wnd = do
 	inc <- get finc
 	vc <- get fiva >>= return . (inc*)
 	(Just t) <- getTime
-	colors <- return $ concat $ map (\(r,g,b) -> map double2Float [r,g,b]) $ withStrategy (parBuffer 512 rseq) . map (func vc) $ pts xy w
+	colors <- return $ map double2Float $ concatMap (\(r,g,b) -> [r,g,b]) $ withStrategy (parBuffer 512 rseq) . map (func vc) $ pts xy w
 	withArray colors $ glTexImage2D gl_TEXTURE_2D 0 (fromIntegral gl_RGB) (tw+1) (tw+1) 0 gl_RGB gl_FLOAT
-	getTime >>= (\(Just t2) -> (print . subtract t) t2)
+	getTime >>= print . subtract t . (\(Just x) -> x)
 
 readDoub :: String -> Double
 readComp :: String -> Complex Double
