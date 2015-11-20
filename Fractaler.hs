@@ -296,5 +296,5 @@ readPoly = readMulti readComp
 diffPoly [] = []
 diffPoly [x] = []
 diffPoly (_:x:xs) = x:zipWith (\(x:+y) z->(x*z):+(y*z)) xs [2..]
-makePolyF [] y = 0
-makePolyF (xh:x) y = xh+(sum $ zipWith (*) x $ iterate (y*) y)
+makePolyF [] !y = 0
+makePolyF (xh:x) !y = xh+(sum $ zipWith (*) x $ iterate (y*) y)

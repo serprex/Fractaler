@@ -30,7 +30,7 @@ hvrgb hc vv = case double2Int h of
 bluegrad :: Int -> Int -> Color3
 bluegrad' :: Double -> Color3
 bluegrad z zz = bluegrad' $ fromIntegral z/fromIntegral zz
-bluegrad' x = (cub x, sqr x, x)
+bluegrad' !x = (cub x, sqr x, x)
 complex :: (Complex Double -> Complex Double) -> FractalCb
 newton :: (Complex Double -> Complex Double) -> (Complex Double -> Complex Double) -> FractalCb
 cantor,sicarp,sitabl,collatz,tricorn,burningship,nodoub,yxmandel,dagger,mandel :: FractalCb
