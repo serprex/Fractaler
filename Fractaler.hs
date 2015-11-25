@@ -57,8 +57,8 @@ main = do
 	vbotx <- alloca (\x -> glGenBuffers 2 x >> peek x)
 	mapM_ (\(vbo,v,glf) -> do
 		glBindBuffer gl_ARRAY_BUFFER vbo
-		withArray v (\v -> glBufferData gl_ARRAY_BUFFER 32 v gl_STATIC_DRAW)
-		glf 2 gl_FLOAT 0 nullPtr) [(vbotx, [(-1::Float),-1,1,-1,1,1,-1,1], glVertexPointer), (vbotx+1, [(0::Float),0,0,1,1,1,1,0], glTexCoordPointer)]
+		withArray v (\v -> glBufferData gl_ARRAY_BUFFER 48 v gl_STATIC_DRAW)
+		glf 2 gl_FLOAT 0 nullPtr) [(vbotx, [(-1::Float),-1,1,-1,1,1,1,1,-1,1,-1,-1], glVertexPointer), (vbotx+1, [(0::Float),0,0,1,1,1,1,1,1,0,0,0], glTexCoordPointer)]
 	glEnable gl_TEXTURE_2D
 	font <- createTextureFont "DejaVuSansMono.ttf"
 	setFontFaceSize font 16 0
@@ -186,7 +186,7 @@ main' wnd xydrt xyold xynew fdrt fiva finc func gfxtx font menu = do
 			get fdrt >>= (flip when $ do
 				fdrt $= False
 				displayMap xyold fiva finc func wnd)
-			glDrawArrays gl_QUADS 0 4
+			glDrawArrays gl_TRIANGLES 0 6
 			getMouseButton wnd MouseButton'2 >>= (flip (when.(MouseButtonState'Pressed==)) $ do
 				glColor3f 1 0 0
 				glPushMatrix
