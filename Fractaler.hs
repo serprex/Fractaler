@@ -2,7 +2,7 @@
 {-# OPTIONS -fexcess-precision -funbox-strict-fields -feager-blackholing -O2#-}
 module Main(main) where
 import Prelude hiding (init)
-import Graphics.Rendering.OpenGL.Raw.Version21
+import Graphics.Rendering.OpenGL.Raw.Core31
 import Graphics.Rendering.FTGL
 import Graphics.UI.GLFW
 import Data.IORef
@@ -21,9 +21,7 @@ import Numeric.FastMath
 import Templates
 
 doUntil :: (a -> Bool) -> IO a -> IO a
-doUntil p x = do
-	r <- x
-	if p r then return r else doUntil p x
+doUntil p x = x >>= \r -> if p r then return r else doUntil p x
 rancom :: (Double,Double) -> (Double,Double) -> IO (Complex Double)
 ranpol :: IO [Complex Double]
 rancom x y = randomRIO x >>= return . (:+) >>= (randomRIO y >>=) . (return .)
@@ -35,9 +33,7 @@ winpr :: Show a => Window -> a -> IO ()
 winpr wnd x = setWindowTitle wnd (show x) >> print x
 
 getwinwid :: Window -> IO Double
-getwinwid wnd = do
-	(w,_) <- getWindowSize wnd
-	return $ fromIntegral w
+getwinwid wnd = getWindowSize wnd >>= return . fromIntegral . fst
 
 get :: IORef a -> IO a
 get = readIORef
@@ -51,6 +47,7 @@ get = readIORef
 main = do
 	setErrorCallback $ Just (\e s -> putStrLn $ unwords [show e, show s])
 	init
+	mapM_ windowHint [WindowHint'ContextVersionMajor 3, WindowHint'ContextVersionMinor 0]
 	(Just wnd) <- createWindow 512 512 "Fractaler" Nothing Nothing
 	makeContextCurrent (Just wnd)
 	mapM_ glEnableClientState [gl_VERTEX_ARRAY, gl_TEXTURE_COORD_ARRAY]
