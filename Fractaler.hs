@@ -53,15 +53,19 @@ main = do
 	init
 	(Just wnd) <- createWindow 512 512 "Fractaler" Nothing Nothing
 	makeContextCurrent (Just wnd)
+	mapM_ glEnableClientState [gl_VERTEX_ARRAY, gl_TEXTURE_COORD_ARRAY]
+	vbotx <- alloca (\x -> glGenBuffers 2 x >> peek x)
+	mapM_ (\(vbo,v,glf) -> do
+		glBindBuffer gl_ARRAY_BUFFER vbo
+		withArray v (\v -> glBufferData gl_ARRAY_BUFFER 32 v gl_STATIC_DRAW)
+		glf 2 gl_FLOAT 0 nullPtr) [(vbotx, [(-1::Float),-1,1,-1,1,1,-1,1], glVertexPointer), (vbotx+1, [(0::Float),0,0,1,1,1,1,0], glTexCoordPointer)]
 	glEnable gl_TEXTURE_2D
 	font <- createTextureFont "DejaVuSansMono.ttf"
 	setFontFaceSize font 16 0
 	gfxtx <- alloca (\x -> glGenTextures 1 x >> peek x)
 	glBindTexture gl_TEXTURE_2D gfxtx
-	glTexParameteri gl_TEXTURE_2D gl_TEXTURE_WRAP_T $ fromIntegral gl_CLAMP_TO_EDGE
-	glTexParameteri gl_TEXTURE_2D gl_TEXTURE_WRAP_S $ fromIntegral gl_CLAMP_TO_EDGE
-	glTexParameteri gl_TEXTURE_2D gl_TEXTURE_MAG_FILTER $ fromIntegral gl_NEAREST
-	glTexParameteri gl_TEXTURE_2D gl_TEXTURE_MIN_FILTER $ fromIntegral gl_NEAREST
+	mapM_ (\wrap -> glTexParameteri gl_TEXTURE_2D wrap $ fromIntegral gl_CLAMP_TO_EDGE) [gl_TEXTURE_WRAP_T, gl_TEXTURE_WRAP_S] 
+	mapM_ (\mfilt -> glTexParameteri gl_TEXTURE_2D mfilt $ fromIntegral gl_NEAREST) [gl_TEXTURE_MAG_FILTER, gl_TEXTURE_MIN_FILTER]
 	reshaper wnd 512 512
 	args <- getArgs
 	rnd <- return $ null args
@@ -182,16 +186,7 @@ main' wnd xydrt xyold xynew fdrt fiva finc func gfxtx font menu = do
 			get fdrt >>= (flip when $ do
 				fdrt $= False
 				displayMap xyold fiva finc func wnd)
-			glBegin gl_QUADS
-			glTexCoord2f 0 0
-			glVertex2f (-1) (-1)
-			glTexCoord2f 0 1
-			glVertex2f 1 (-1)
-			glTexCoord2f 1 1
-			glVertex2f 1 1
-			glTexCoord2f 1 0
-			glVertex2f (-1) 1
-			glEnd
+			glDrawArrays gl_QUADS 0 4
 			getMouseButton wnd MouseButton'2 >>= (flip (when.(MouseButtonState'Pressed==)) $ do
 				glColor3f 1 0 0
 				glPushMatrix
